@@ -1,1606 +1,1627 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebGIS Monitoring Lahan & Pos Petugas Jabodetabek</title>
-    <link rel="icon" href="./favicon.ico" type="image/x-icon">
-    <link rel="shortcut icon" href="./favicon.ico" type="image/x-icon">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Data Titik Ujung &amp; Pos Petugas</title>
+  <link rel="icon" type="image/x-icon" href="./favicon.ico" />
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
 
-    <!-- Google Fonts: Inter -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS & JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
-    <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Turf.js untuk Dissolve Batas Wilayah Dinamis -->
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
-    <!-- Leaflet CSS & JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-    <!-- Turf.js for Spatial Centroids & Bounds -->
-    <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Chart.js for Statistical Dashboard -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: #f1f5f9;
+    }
 
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        #map {
-            width: 100%;
-            height: 100%;
-            z-index: 1;
-        }
-        /* Custom Scrollbar */
-        .custom-scrollbar::-webkit-scrollbar {
-            width: 5px;
-            height: 5px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-track {
-            background: #f1f5f9;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb {
-            background: #cbd5e1;
-            border-radius: 9999px;
-        }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-            background: #94a3b8;
-        }
-        /* Custom Regional Cluster DivIcon */
-        .region-cluster-wrapper {
-            background: transparent;
-            border: none;
-        }
-        .region-cluster-bubble {
-            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
-        }
-        .region-cluster-bubble:hover {
-            transform: scale(1.08);
-            z-index: 999 !important;
-        }
-        /* Leaflet Popup Customization */
-        .leaflet-popup-content-wrapper {
-            border-radius: 0.75rem;
-            box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 8px 10px -6px rgba(15, 23, 42, 0.1);
-            padding: 0;
-            overflow: hidden;
-        }
-        .leaflet-popup-content {
-            margin: 0;
-            min-width: 250px;
-        }
-        /* Hilangkan kotak fokus hitam browser saat klik/hover poligon Leaflet */
-        path.leaflet-interactive:focus,
-        .leaflet-interactive:focus {
-            outline: none !important;
-        }
-    </style>
+    #map {
+      height: 100%;
+      width: 100%;
+      z-index: 1;
+      background: #e2e8f0;
+    }
+
+    /* Hilangkan kotak fokus hitam saat klik/hover poligon SVG Leaflet */
+    .leaflet-interactive:focus,
+    path.leaflet-interactive:focus,
+    svg.leaflet-zoom-animated path:focus {
+      outline: none !important;
+    }
+
+    /* Custom Scrollbar untuk Sidebar Permanen */
+    .custom-scroll::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+    .custom-scroll::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Pil Klaster Multi-Warna Segmen Jenis Layanan */
+    .service-pill-marker {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 72px;
+      height: 30px;
+      padding: 0 12px;
+      border-radius: 9999px;
+      border: 2.5px solid #ffffff;
+      box-shadow: 0 3px 10px rgba(27, 54, 104, 0.28);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 13px;
+      letter-spacing: -0.01em;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      user-select: none;
+    }
+    .service-pill-marker:hover {
+      transform: scale(1.08);
+      box-shadow: 0 6px 16px rgba(27, 54, 104, 0.42);
+      z-index: 999 !important;
+    }
+
+    /* Custom Popup Leaflet */
+    .leaflet-popup-content-wrapper {
+      border-radius: 12px;
+      box-shadow: 0 10px 25px -5px rgba(27, 54, 104, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+    .leaflet-popup-content {
+      margin: 0;
+      width: 280px !important;
+    }
+    .leaflet-popup-tip {
+      background: #ffffff;
+    }
+  </style>
 </head>
-<body class="bg-slate-100 text-slate-800 antialiased overflow-hidden">
+<body class="flex flex-col h-screen w-screen overflow-hidden text-slate-800">
 
-    <!-- Main Layout: Permanent Sidebar + Map Viewport -->
-    <div class="flex flex-col md:flex-row h-screen w-screen overflow-hidden">
-
-        <!-- PERMANENT LEFT SIDEBAR -->
-        <aside class="w-full md:w-[420px] lg:w-[450px] h-[48vh] md:h-screen bg-white border-b md:border-b-0 md:border-r border-slate-200 flex flex-col shrink-0 z-20 shadow-lg">
-            
-            <!-- Header Bar -->
-            <header class="px-5 py-3.5 bg-[#1B3668] text-white flex items-center justify-between shrink-0">
-                <div class="flex items-center gap-3">
-                    <img src="./TJ-Putih.png" alt="Logo Transjakarta" class="h-9 w-auto object-contain shrink-0">
-                    <div>
-                        <h1 class="font-bold text-sm sm:text-base tracking-tight leading-tight">Command Center WebGIS</h1>
-                        <p class="text-[11px] text-[#93C5FD]">Monitoring Lahan Prasarana & Pos Petugas</p>
-                    </div>
-                </div>
-                <span id="data-source-pill" class="text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                    Memuat GeoJSON...
-                </span>
-            </header>
-
-            <!-- Navigation Tabs -->
-            <div class="grid grid-cols-3 bg-slate-100 p-1 border-b border-slate-200 shrink-0 text-xs font-semibold">
-                <button id="tab-btn-stats" onclick="switchSidebarTab('stats')" class="py-2 px-2 rounded-lg bg-white text-emerald-700 shadow-sm transition flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-chart-pie"></i> Statistik
-                </button>
-                <button id="tab-btn-list" onclick="switchSidebarTab('list')" class="py-2 px-2 rounded-lg text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-list-ul"></i> Daftar Pos
-                </button>
-                <button id="tab-btn-detail" onclick="switchSidebarTab('detail')" class="py-2 px-2 rounded-lg text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5">
-                    <i class="fa-solid fa-circle-info"></i> Detail Objek
-                </button>
-            </div>
-
-            <!-- Global Filter Bar (Always Accessible) -->
-            <div class="p-3.5 bg-slate-50 border-b border-slate-200 space-y-2.5 shrink-0">
-                <!-- Search Box -->
-                <div class="relative">
-                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-                    <input type="text" id="filter-search" placeholder="Cari ID_Petugas, Nama Titik, ID_Lahan, Rute..."
-                           class="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-300 rounded-lg text-xs focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none">
-                    <button id="btn-clear-search" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
-                        <i class="fa-solid fa-xmark text-xs"></i>
-                    </button>
-                </div>
-
-                <!-- Administrative Hierarchical Filters -->
-                <div class="grid grid-cols-3 gap-1.5 text-[11px]">
-                    <select id="filter-prov" class="p-1.5 bg-white border border-slate-300 rounded-lg outline-none truncate" title="Filter Provinsi (WADMPR)">
-                        <option value="ALL">Semua Provinsi</option>
-                    </select>
-                    <select id="filter-kab" class="p-1.5 bg-white border border-slate-300 rounded-lg outline-none truncate" title="Filter Kab/Kota (WADMKK)">
-                        <option value="ALL">Semua Kab/Kota</option>
-                    </select>
-                    <select id="filter-kec" class="p-1.5 bg-white border border-slate-300 rounded-lg outline-none truncate" title="Filter Kecamatan (WADMKC)">
-                        <option value="ALL">Semua Kecamatan</option>
-                    </select>
-                </div>
-
-                <!-- Primary Classification Filters: Jenis Layanan & Bentuk -->
-                <div class="grid grid-cols-2 gap-1.5 text-[11px]">
-                    <select id="filter-layanan" class="p-1.5 bg-white border border-slate-300 rounded-lg outline-none font-medium text-slate-700" title="Filter Jenis Layanan">
-                        <option value="ALL">Semua Jenis Layanan</option>
-                    </select>
-                    <select id="filter-bentuk" class="p-1.5 bg-white border border-slate-300 rounded-lg outline-none" title="Filter Bentuk Prasarana">
-                        <option value="ALL">Semua Bentuk</option>
-                    </select>
-                </div>
-            </div>
-
-            <!-- SCROLLABLE SIDEBAR CONTENT BODY -->
-            <div class="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
-
-                <!-- TAB 1: STATISTICAL DASHBOARD (ID_Petugas vs Jumlah Pet) -->
-                <div id="panel-stats" class="space-y-4">
-                    
-                    <!-- KPI Cards Grid -->
-                    <div class="grid grid-cols-2 gap-2.5">
-                        <!-- Card 1: Total Pos Petugas (ID_Petugas) -->
-                        <div class="p-3 rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/80">
-                            <div class="flex items-center justify-between text-emerald-700 mb-1">
-                                <span class="text-[11px] font-semibold uppercase tracking-wider">Pos Petugas</span>
-                                <i class="fa-solid fa-location-dot text-xs opacity-75"></i>
-                            </div>
-                            <div id="kpi-total-pos" class="text-2xl font-extrabold text-slate-800">0</div>
-                            <div id="kpi-sub-wilayah" class="text-[10px] text-emerald-700 mt-0.5 font-medium">0 Kecamatan • 0 Kab/Kota</div>
-                        </div>
-
-                        <!-- Card 2: Total Personel (Jumlah Pet) -->
-                        <div class="p-3 rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 border border-blue-200/80">
-                            <div class="flex items-center justify-between text-blue-700 mb-1">
-                                <span class="text-[11px] font-semibold uppercase tracking-wider">Jumlah Petugas</span>
-                                <i class="fa-solid fa-users text-xs opacity-75"></i>
-                            </div>
-                            <div id="kpi-total-petugas" class="text-2xl font-extrabold text-slate-800">0</div>
-                            <div id="kpi-sub-avg" class="text-[10px] text-blue-700 mt-0.5 font-medium">Rata-rata 0.0 Petugas/Pos</div>
-                        </div>
-
-                        <!-- Card 3: Total Rute Terlayani -->
-                        <div class="p-3 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200/80">
-                            <div class="flex items-center justify-between text-amber-700 mb-1">
-                                <span class="text-[11px] font-semibold uppercase tracking-wider">Total Rute</span>
-                                <i class="fa-solid fa-route text-xs opacity-75"></i>
-                            </div>
-                            <div id="kpi-total-rute" class="text-2xl font-extrabold text-slate-800">0</div>
-                            <div id="kpi-sub-layanan" class="text-[10px] text-amber-700 mt-0.5 font-medium">0 Kategori Layanan Aktif</div>
-                        </div>
-
-                        <!-- Card 4: Lahan Terkait -->
-                        <div class="p-3 rounded-xl bg-gradient-to-br from-purple-50 to-fuchsia-50 border border-purple-200/80">
-                            <div class="flex items-center justify-between text-purple-700 mb-1">
-                                <span class="text-[11px] font-semibold uppercase tracking-wider">Titik Lahan</span>
-                                <i class="fa-solid fa-vector-square text-xs opacity-75"></i>
-                            </div>
-                            <div id="kpi-total-lahan" class="text-2xl font-extrabold text-slate-800">0</div>
-                            <div id="kpi-sub-luas" class="text-[10px] text-purple-700 mt-0.5 font-medium">Luas Total 0 Ha</div>
-                        </div>
-                    </div>
-
-                    <!-- Jenis Layanan Color Breakdown Bar -->
-                    <div class="p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm space-y-2">
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="font-bold text-slate-700">Komposisi Jenis Layanan</span>
-                            <span class="text-[10px] text-slate-400 font-medium">Berdasarkan Pos Petugas</span>
-                        </div>
-                        <div id="layanan-stacked-bar" class="w-full h-3 bg-slate-100 rounded-full overflow-hidden flex">
-                            <!-- Segmented bars populated dynamically -->
-                        </div>
-                        <div id="layanan-legend-pills" class="flex flex-wrap gap-1.5 pt-1">
-                            <!-- Service pills populated dynamically -->
-                        </div>
-                    </div>
-
-                    <!-- Chart 1: Sebaran ID_Petugas vs Jumlah Petugas per Kab/Kota (WADMKK) -->
-                    <div class="p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-xs font-bold text-slate-700">Sebaran Pos & Personel per Kab/Kota</h3>
-                            <span class="text-[10px] text-slate-400 font-medium">WADMKK</span>
-                        </div>
-                        <div class="h-52 relative">
-                            <canvas id="chart-wilayah"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Chart 2: Proporsi Jenis Layanan -->
-                    <div class="p-3.5 bg-white rounded-xl border border-slate-200 shadow-sm">
-                        <div class="flex items-center justify-between mb-2">
-                            <h3 class="text-xs font-bold text-slate-700">Distribusi Jenis Layanan</h3>
-                            <span class="text-[10px] text-slate-400 font-medium">Kategori Layanan</span>
-                        </div>
-                        <div class="h-44 relative">
-                            <canvas id="chart-layanan"></canvas>
-                        </div>
-                    </div>
-
-                </div>
-
-                <!-- TAB 2: DAFTAR POS PETUGAS TERFILTER -->
-                <div id="panel-list" class="hidden space-y-2.5">
-                    <div class="flex items-center justify-between text-xs text-slate-500 pb-1 border-b border-slate-200">
-                        <span>Menampilkan <strong id="list-count-label" class="text-slate-800">0</strong> pos petugas</span>
-                        <button onclick="resetAllFilters()" class="text-emerald-600 hover:underline font-medium text-[11px]">Reset Filter</button>
-                    </div>
-                    <div id="locations-list-container" class="space-y-2">
-                        <!-- Dynamically populated -->
-                    </div>
-                </div>
-
-                <!-- TAB 3: INSPEKTUR DETAIL OBJEK -->
-                <div id="panel-detail" class="hidden space-y-3">
-                    <div id="detail-inspector-container" class="p-4 bg-slate-50 rounded-xl border border-slate-200 text-center text-xs text-slate-500">
-                        <i class="fa-solid fa-hand-pointer text-2xl text-slate-300 mb-2 block"></i>
-                        Klik salah satu <strong>Titik Pos Petugas</strong> atau <strong>Poligon Lahan</strong> pada peta (saat skala detail &lt; 1:50.000) untuk melihat rincian atribut dan daftar Jenis Layanan.
-                    </div>
-                </div>
-
-            </div>
-        </aside>
-
-        <!-- RIGHT VIEWPORT: MAP & OVERLAY CONTROLS -->
-        <main class="flex-1 h-[52vh] md:h-screen relative">
-            <div id="map"></div>
-
-            <!-- Top-Right Navy Cluster Tier Pill (Matching Screenshot 2) -->
-            <div class="absolute top-3 right-12 z-[900] flex items-center gap-2">
-                <div id="cluster-mode-pill" class="px-4 py-1.5 rounded-full bg-[#1e3a8a] text-white shadow-lg border border-blue-400/30 flex items-center gap-2 text-xs font-bold tracking-wide">
-                    <i class="fa-solid fa-magnifying-glass text-amber-300 text-[11px]"></i>
-                    <span id="scale-mode-title">Klaster: KECAMATAN</span>
-                </div>
-            </div>
-
-            <!-- Floating Legend & Cluster Metric Selector (Bottom Left of Map) -->
-            <div class="absolute bottom-6 left-3 z-[900] bg-white/95 backdrop-blur-md border border-slate-200 shadow-lg rounded-xl p-3 text-xs space-y-2.5 max-w-[260px]">
-                <div class="flex items-center justify-between border-b border-slate-100 pb-1.5">
-                    <span class="font-bold text-slate-700 text-[11px] uppercase tracking-wider">Legenda Jenis Layanan</span>
-                    <span id="zoom-scale-info" class="text-[10px] font-semibold text-slate-400">Zoom 12</span>
-                </div>
-
-                <!-- Service Color Key -->
-                <div id="map-service-legend" class="grid grid-cols-2 gap-1.5 text-[11px]">
-                    <!-- Populated dynamically -->
-                </div>
-
-                <!-- Cluster Number Metric Toggle -->
-                <div class="pt-1.5 border-t border-slate-100">
-                    <div class="text-[10px] font-semibold text-slate-500 mb-1">Angka pada Pil Klaster:</div>
-                    <div class="grid grid-cols-2 gap-1 bg-slate-100 p-0.5 rounded-lg text-[10px] font-semibold">
-                        <button id="metric-btn-petugas" onclick="setClusterMetric('petugas')" class="py-1 px-1.5 rounded-md bg-white text-slate-800 shadow-sm transition">
-                            Jumlah Petugas
-                        </button>
-                        <button id="metric-btn-pos" onclick="setClusterMetric('pos')" class="py-1 px-1.5 rounded-md text-slate-500 hover:text-slate-800 transition">
-                            Jumlah Pos
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Layer Visibility Checkboxes -->
-                <div class="pt-1.5 border-t border-slate-100 space-y-1.5">
-                    <label class="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" id="toggle-layer-wilayah" checked class="w-3.5 h-3.5 accent-blue-700 rounded">
-                        <span class="w-3 h-0.5 bg-[#1e40af] inline-block"></span>
-                        <span class="text-slate-700 font-medium text-[11px]">Batas Wilayah (`Wilayah_kec`)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" id="toggle-layer-lahan" checked class="w-3.5 h-3.5 accent-emerald-600 rounded">
-                        <span class="w-3 h-3 rounded-sm bg-emerald-500/25 border border-emerald-600 inline-block"></span>
-                        <span class="text-slate-700 font-medium text-[11px]">Poligon Lahan (`INIFIX_Aman`)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer select-none">
-                        <input type="checkbox" id="toggle-layer-petugas" checked class="w-3.5 h-3.5 accent-blue-600 rounded">
-                        <span class="w-2.5 h-2.5 rounded-full bg-blue-600 border border-white shadow inline-block"></span>
-                        <span class="text-slate-700 font-medium text-[11px]">Pos Petugas (`Petugas_JSON`)</span>
-                    </label>
-                </div>
-            </div>
-
-            <!-- Zoom to Fit All Data Button -->
-            <button onclick="fitAllFilteredBounds()" title="Zoom ke Seluruh Data Terfilter"
-                    class="absolute top-24 right-2.5 z-[900] w-[34px] h-[34px] bg-white hover:bg-slate-50 text-slate-700 border-2 border-slate-300/80 rounded-md shadow flex items-center justify-center transition">
-                <i class="fa-solid fa-expand text-sm"></i>
-            </button>
-        </main>
-
+  <!-- TOP HEADER BAR (TEMA NAVY TRANSJAKARTA) -->
+  <header class="h-14 bg-[#1B3668] text-white flex items-center justify-between px-4 shrink-0 shadow-md z-30 border-b border-[#13274d]">
+    <div class="flex items-center gap-3">
+      <div class="h-9 px-2 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
+        <img src="./TJ-Putih.png" alt="Logo Transjakarta" class="h-6 w-auto object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
+        <div class="hidden items-center justify-center text-white">
+          <i data-lucide="map-pin" class="w-5 h-5"></i>
+        </div>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm md:text-base font-bold tracking-tight leading-none text-white">Data Titik Ujung &amp; Pos Petugas</h1>
+          <span id="data-source-badge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[#264b8e] text-blue-100 border border-blue-400/30">
+            Loading Data...
+          </span>
+        </div>
+        <p class="text-[11px] text-blue-200 mt-1 hidden sm:block">Klasifikasi Jenis Layanan &bull; Klasterisasi Wilayah &bull; Sebaran Petugas</p>
+      </div>
     </div>
 
-    <script>
-        // =========================================================================
-        // 1. KONFIGURASI WARNA & PARSER JENIS LAYANAN
-        // =========================================================================
-        const SERVICE_COLOR_MAP = {
-            'BRT': { hex: '#16a34a', badgeBg: 'bg-emerald-100', badgeText: 'text-emerald-800', border: 'border-emerald-200', label: 'BRT' },
-            'Angkutan Umum': { hex: '#ef4444', badgeBg: 'bg-red-100', badgeText: 'text-red-800', border: 'border-red-200', label: 'Angkutan Umum' },
-            'Mikrotrans': { hex: '#f59e0b', badgeBg: 'bg-amber-100', badgeText: 'text-amber-800', border: 'border-amber-200', label: 'Mikrotrans' },
-            'Transjabodetabek': { hex: '#2563eb', badgeBg: 'bg-blue-100', badgeText: 'text-blue-800', border: 'border-blue-200', label: 'Transjabodetabek' },
-            'Royaltrans': { hex: '#8b5cf6', badgeBg: 'bg-purple-100', badgeText: 'text-purple-800', border: 'border-purple-200', label: 'Royaltrans' },
-            'Lainnya': { hex: '#64748b', badgeBg: 'bg-slate-100', badgeText: 'text-slate-700', border: 'border-slate-200', label: 'Lainnya' }
+    <div class="flex items-center gap-2">
+      <button id="btn-reset-view" class="flex items-center gap-1.5 text-xs font-semibold bg-[#264b8e] hover:bg-[#2f5aa8] text-white px-3 py-1.5 rounded-lg border border-blue-400/30 transition shadow-sm">
+        <i data-lucide="maximize-2" class="w-3.5 h-3.5 text-blue-200"></i>
+        <span class="hidden sm:inline">Reset</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN CONTENT: SIDEBAR PERMANEN + PETA -->
+  <div class="flex flex-1 min-h-0 overflow-hidden relative">
+
+    <!-- SIDEBAR PERMANEN (KIRI) -->
+    <aside id="permanent-sidebar" class="w-full sm:w-[390px] lg:w-[415px] bg-white border-r border-slate-200 flex flex-col shrink-0 z-20 shadow-lg">
+
+      <!-- FILTER & PENCARIAN -->
+      <div class="p-3.5 bg-slate-50/90 border-b border-slate-200 space-y-2.5 shrink-0">
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+          <input id="search-input" type="text" placeholder="Cari ID Petugas, Nama Titik, Rute, atau Wilayah..."
+            class="w-full pl-9 pr-8 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#1B3668] focus:border-[#1B3668] transition" />
+          <button id="clear-search" class="hidden absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600">
+            <i data-lucide="x" class="w-3.5 h-3.5"></i>
+          </button>
+        </div>
+
+        <!-- Filter Wilayah Berjenjang -->
+        <div class="grid grid-cols-3 gap-1.5">
+          <div>
+            <label class="block text-[10px] font-bold text-[#1B3668] uppercase mb-0.5">Provinsi</label>
+            <select id="filter-provinsi" class="w-full text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#1B3668]">
+              <option value="">Semua</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-[#1B3668] uppercase mb-0.5">Kab/Kota</label>
+            <select id="filter-kabkota" class="w-full text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#1B3668]">
+              <option value="">Semua</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-[#1B3668] uppercase mb-0.5">Kecamatan</label>
+            <select id="filter-kecamatan" class="w-full text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#1B3668]">
+              <option value="">Semua</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Filter Jenis Layanan & Bentuk Prasarana -->
+        <div class="grid grid-cols-2 gap-1.5">
+          <div>
+            <label class="block text-[10px] font-bold text-[#1B3668] uppercase mb-0.5">Jenis Layanan</label>
+            <select id="filter-layanan" class="w-full text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#1B3668]">
+              <option value="">Semua Layanan</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-[10px] font-bold text-[#1B3668] uppercase mb-0.5">Bentuk Titik Ujung</label>
+            <select id="filter-bentuk" class="w-full text-[11px] bg-white border border-slate-300 rounded-md px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-[#1B3668]">
+              <option value="">Semua Bentuk</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB NAVIGASI SIDEBAR -->
+      <div class="flex border-b border-slate-200 bg-white px-2 pt-1.5 shrink-0">
+        <button data-tab="stats" class="tab-btn active flex-1 py-2 text-xs font-bold border-b-2 border-[#1B3668] text-[#1B3668] flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="bar-chart-3" class="w-3.5 h-3.5"></i>
+          <span>Statistik</span>
+        </button>
+        <button data-tab="list" class="tab-btn flex-1 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="list" class="w-3.5 h-3.5"></i>
+          <span>Daftar Tempat Petugas (<span id="tab-list-count">0</span>)</span>
+        </button>
+        <button data-tab="detail" class="tab-btn flex-1 py-2 text-xs font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-700 flex items-center justify-center gap-1.5 transition">
+          <i data-lucide="info" class="w-3.5 h-3.5"></i>
+          <span>Detail Data</span>
+        </button>
+      </div>
+
+      <!-- KONTEN TAB 1: DASHBOARD STATISTIK -->
+      <div id="tab-stats" class="tab-panel flex-1 overflow-y-auto custom-scroll p-3.5 space-y-3.5">
+        <!-- KPI Cards (Berbasis ID_Petugas & Jumlah Petugas) -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="bg-white border border-slate-200 border-l-4 border-l-[#1B3668] rounded-xl p-3 shadow-sm">
+            <div class="flex items-center justify-between text-[#1B3668] mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider">Total Tempat Petugas</span>
+              <i data-lucide="map-pin" class="w-3.5 h-3.5"></i>
+            </div>
+            <div id="kpi-pos" class="text-xl font-extrabold text-slate-900">0</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Lokasi Pos Petugas Aktif</div>
+          </div>
+
+          <div class="bg-white border border-slate-200 border-l-4 border-l-[#0284C7] rounded-xl p-3 shadow-sm">
+            <div class="flex items-center justify-between text-[#0284C7] mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider">Total Petugas</span>
+              <i data-lucide="users" class="w-3.5 h-3.5"></i>
+            </div>
+            <div id="kpi-petugas" class="text-xl font-extrabold text-slate-900">0</div>
+            <div id="kpi-avg-petugas" class="text-[10px] text-slate-500 mt-0.5">Rata-rata 0/pos</div>
+          </div>
+
+          <div class="bg-white border border-slate-200 border-l-4 border-l-[#16A34A] rounded-xl p-3 shadow-sm">
+            <div class="flex items-center justify-between text-[#16A34A] mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider">Total Luas Lahan</span>
+              <i data-lucide="ruler" class="w-3.5 h-3.5"></i>
+            </div>
+            <div id="kpi-luas" class="text-lg font-extrabold text-slate-900">0 m²</div>
+            <div id="kpi-luas-ha" class="text-[10px] text-slate-500 mt-0.5">0.00 Hektar</div>
+          </div>
+
+          <div class="bg-white border border-slate-200 border-l-4 border-l-[#F97316] rounded-xl p-3 shadow-sm">
+            <div class="flex items-center justify-between text-[#F97316] mb-1">
+              <span class="text-[10px] font-bold uppercase tracking-wider">Cakupan Rute</span>
+              <i data-lucide="route" class="w-3.5 h-3.5"></i>
+            </div>
+            <div id="kpi-rute" class="text-xl font-extrabold text-slate-900">0</div>
+            <div class="text-[10px] text-slate-500 mt-0.5">Akumulasi Rute</div>
+          </div>
+        </div>
+
+        <!-- Legenda Kode Warna Jenis Layanan -->
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-[#1B3668]">Jenis Layanan</h3>
+            <span class="text-[10px] text-slate-400">Filter</span>
+          </div>
+          <div id="service-legend-list" class="space-y-1.5"></div>
+        </div>
+
+        <!-- Chart 1: Sebaran ID_Petugas vs Jumlah Petugas per Wilayah -->
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-[#1B3668]">Sebaran Lokasi dan Petugas per Wilayah</h3>
+            <span class="text-[10px] text-slate-400 font-medium">Petugas</span>
+          </div>
+          <div class="h-48 relative">
+            <canvas id="chart-wilayah"></canvas>
+          </div>
+        </div>
+
+        <!-- Chart 2: Komposisi Jenis Layanan -->
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-[#1B3668]">Proporsi Jenis Layanan</h3>
+            <span class="text-[10px] text-slate-400">Jumlah Pos Petugas</span>
+          </div>
+          <div class="h-44 relative flex items-center justify-center">
+            <canvas id="chart-layanan"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- KONTEN TAB 2: DAFTAR POS PETUGAS -->
+      <div id="tab-list" class="tab-panel hidden flex-1 overflow-y-auto custom-scroll p-3 space-y-2 bg-slate-50">
+        <!-- Diisi secara dinamis -->
+      </div>
+
+      <!-- KONTEN TAB 3: DETAIL OBJEK TERPILIH -->
+      <div id="tab-detail" class="tab-panel hidden flex-1 overflow-y-auto custom-scroll p-3.5">
+        <div id="detail-empty" class="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
+          <div class="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mb-3">
+            <i data-lucide="mouse-pointer-click" class="w-6 h-6 text-[#1B3668]"></i>
+          </div>
+          <p class="text-xs font-bold text-slate-700">Belum Ada Objek Dipilih</p>
+          <p class="text-[11px] mt-1 leading-relaxed">Zoom in peta hingga skala &lt; 1:50.000 (Zoom &ge; 14) lalu klik titik Pos Petugas atau Poligon Lahan untuk cek data</p>
+        </div>
+        <div id="detail-content" class="hidden space-y-3"></div>
+      </div>
+    </aside>
+
+    <!-- AREA PETA UTAMA -->
+    <main class="flex-1 relative h-full min-w-0">
+      <div id="map"></div>
+
+      <!-- BADGE STATUS SKALA & KLASTER INTERAKTIF (KANAN ATAS SEPERTI REFERENSI) -->
+      <div class="absolute top-3 right-14 z-[400] flex items-center gap-2 pointer-events-none">
+        <div class="bg-[#1B3668] text-white px-3.5 py-1.5 rounded-full shadow-lg border border-white/20 flex items-center gap-2 text-xs font-bold">
+          <i data-lucide="search" class="w-3.5 h-3.5 text-blue-200"></i>
+          <span id="zoom-mode-label">Klaster: KABUPATEN/KOTA</span>
+          <span class="text-blue-200 font-normal">|</span>
+          <span id="zoom-scale-label" class="text-[11px] font-semibold text-blue-100">Zoom 11</span>
+        </div>
+      </div>
+
+      <!-- KONTROL LAYER & LEGENDA BAWAH -->
+      <div class="absolute bottom-5 left-3 z-[400] bg-white/95 backdrop-blur border border-slate-200 rounded-xl shadow-lg p-3 max-w-[260px] text-xs">
+        <div class="font-bold text-[#1B3668] mb-2 flex items-center justify-between border-b border-slate-100 pb-1.5">
+          <span class="text-[11px] uppercase tracking-wider">Layer &amp; Legenda</span>
+          <i data-lucide="layers" class="w-3.5 h-3.5 text-[#1B3668]"></i>
+        </div>
+
+        <div class="space-y-1.5 mb-2.5">
+          <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
+            <input type="checkbox" id="toggle-wilayah" checked class="rounded text-[#1B3668] focus:ring-[#1B3668]" />
+            <span>Batas Wilayah (LN) (<code class="text-[10px] text-[#1B3668] font-semibold"></code>)</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
+            <input type="checkbox" id="toggle-lahan" checked class="rounded text-[#1B3668] focus:ring-[#1B3668]" />
+            <span>Lahan Titik Ujung (AR) (<code class="text-[10px] text-[#1B3668] font-semibold"></code>)</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
+            <input type="checkbox" id="toggle-petugas" checked class="rounded text-[#1B3668] focus:ring-[#1B3668]" />
+            <span>Pos Petugas (PT) (<code class="text-[10px] text-[#1B3668] font-semibold"></code>)</span>
+          </label>
+        </div>
+
+        <div class="border-t border-slate-100 pt-2 space-y-1 text-[10px] text-slate-600">
+          <div class="font-bold text-slate-700 mb-1">Aturan Skala &amp; Batas Wilayah:</div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#1B3668]"></span>
+            <span>Zoom &le; 9: Klaster &amp; Provinsi</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#0284C7]"></span>
+            <span>Zoom 10–11: Klaster &amp; Kab/Kota</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#16A34A]"></span>
+            <span>Zoom 12–13: Klaster &amp; Kecamatan</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-[#F97316]"></span>
+            <span>Zoom &ge; 14: Poligon Lahan &amp; Per Titik</span>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // =========================================================================
+    // 1. PALET WARNA JENIS LAYANAN (DISESUAIKAN DENGAN TEMA DASHBOARD TJ)
+    // =========================================================================
+    const SERVICE_COLOR_MAP = {
+      'BRT': '#16A34A',               // Hijau Segar
+      'Angkutan Umum': '#DC2626',     // Merah Kontras
+      'Mikrotrans': '#F97316',        // Oranye Hangat
+      'Transjabodetabek': '#0284C7',  // Biru Cerah
+      'Royaltrans': '#EAB308',        // Kuning Emas
+      'Bus Wisata': '#7C3AED',        // Ungu
+      'Lainnya': '#64748B'            // Abu-abu Slate
+    };
+
+    const EXTRA_PALETTE = ['#0D9488', '#DB2777', '#4F46E5', '#D97706', '#059669'];
+    let extraColorIdx = 0;
+
+    function getServiceColor(serviceName) {
+      if (!serviceName) return SERVICE_COLOR_MAP['Lainnya'];
+      const clean = serviceName.trim();
+      for (const [key, color] of Object.entries(SERVICE_COLOR_MAP)) {
+        if (clean.toLowerCase() === key.toLowerCase()) return color;
+      }
+      if (clean.toLowerCase().includes('brt') && !clean.toLowerCase().includes('non')) return SERVICE_COLOR_MAP['BRT'];
+      if (clean.toLowerCase().includes('mikro')) return SERVICE_COLOR_MAP['Mikrotrans'];
+      if (clean.toLowerCase().includes('jabodetabek')) return SERVICE_COLOR_MAP['Transjabodetabek'];
+      if (clean.toLowerCase().includes('angkutan')) return SERVICE_COLOR_MAP['Angkutan Umum'];
+      if (clean.toLowerCase().includes('royal')) return SERVICE_COLOR_MAP['Royaltrans'];
+
+      SERVICE_COLOR_MAP[clean] = EXTRA_PALETTE[extraColorIdx % EXTRA_PALETTE.length];
+      extraColorIdx++;
+      return SERVICE_COLOR_MAP[clean];
+    }
+
+    function parseServices(layananStr) {
+      if (!layananStr || String(layananStr).trim().toUpperCase() === 'NULL') {
+        return ['Tidak Terdefinisi'];
+      }
+      return String(layananStr)
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    // =========================================================================
+    // 2. FALLBACK DATA SAMPEL JABODETABEK (SESUAI TABEL QGIS PENGGUNA)
+    // =========================================================================
+    const FALLBACK_LAHAN = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: {
+            Nama: "Terminal Kampung Rambutan",
+            ID_Lahan: "L26",
+            ID_Petugas: "P37, P96, P38",
+            "Nama Titik": "KAMPUNG RAMBUTAN",
+            Bentuk: "Terminal",
+            Layanan: "BRT, Angkutan Umum, Mikrotrans, Transjabodetabek",
+            Rute: "7A, 7B, 7E, S22, JAK.06, JAK.19",
+            "Jumlah Rut": 13,
+            "Jumlah Pet": 26,
+            NAMOBJ: "Rambutan",
+            WADMKC: "Ciracas",
+            WADMKK: "Kota Adm. Jakarta Timur",
+            WADMPR: "DKI Jakarta",
+            Luas: 20400.904
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[[106.8812, -6.3106], [106.8832, -6.3106], [106.8832, -6.3088], [106.8812, -6.3088], [106.8812, -6.3106]]]
+          }
+        },
+        {
+          type: "Feature",
+          properties: {
+            Nama: "Terminal Pinang Ranti",
+            ID_Lahan: "L42",
+            ID_Petugas: "P57, P58, P100",
+            "Nama Titik": "PINANG RANTI_1",
+            Bentuk: "Terminal",
+            Layanan: "BRT, Angkutan Umum, Mikrotrans",
+            Rute: "4F, 9, 9C, JAK.19, JAK.71",
+            "Jumlah Rut": 5,
+            "Jumlah Pet": 17,
+            NAMOBJ: "Pinangranti",
+            WADMKC: "Makasar",
+            WADMKK: "Kota Adm. Jakarta Timur",
+            WADMPR: "DKI Jakarta",
+            Luas: 23515.343
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[[106.8895, -6.2925], [106.8915, -6.2925], [106.8915, -6.2908], [106.8895, -6.2908], [106.8895, -6.2925]]]
+          }
+        },
+        {
+          type: "Feature",
+          properties: {
+            Nama: "Terminal Blok M",
+            ID_Lahan: "L8",
+            ID_Petugas: "P8, P9, P10, P11, P12, P13, P114",
+            "Nama Titik": "BLOK M_1",
+            Bentuk: "Terminal",
+            Layanan: "BRT, Angkutan Umum, Mikrotrans, Transjabodetabek",
+            Rute: "1, 1C, 1E, 1M, 1P, S61, JAK.31",
+            "Jumlah Rut": 31,
+            "Jumlah Pet": 34,
+            NAMOBJ: "Melawai",
+            WADMKC: "Kebayoran Baru",
+            WADMKK: "Kota Adm. Jakarta Selatan",
+            WADMPR: "DKI Jakarta",
+            Luas: 18920.5
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[[106.7988, -6.2448], [106.8012, -6.2448], [106.8012, -6.2428], [106.7988, -6.2428], [106.7988, -6.2448]]]
+          }
+        },
+        {
+          type: "Feature",
+          properties: {
+            Nama: "Pondok Kelapa",
+            ID_Lahan: "L44",
+            ID_Petugas: "P60, P61",
+            "Nama Titik": "Pondok Kelapa_1",
+            Bentuk: "Lahan Pengendapan",
+            Layanan: "Angkutan Umum, Mikrotrans",
+            Rute: "7P, JAK.39, JAK.42",
+            "Jumlah Rut": 3,
+            "Jumlah Pet": 7,
+            NAMOBJ: "Pondok Kelapa",
+            WADMKC: "Duren Sawit",
+            WADMKK: "Kota Adm. Jakarta Timur",
+            WADMPR: "DKI Jakarta",
+            Luas: 4909.38
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[[106.9355, -6.2455], [106.9368, -6.2455], [106.9368, -6.2445], [106.9355, -6.2445], [106.9355, -6.2455]]]
+          }
+        },
+        {
+          type: "Feature",
+          properties: {
+            Nama: "Summarecon Bekasi",
+            ID_Lahan: "L62",
+            ID_Petugas: "P79",
+            "Nama Titik": "SUMMARECON BEKASI",
+            Bentuk: "Lahan Pengendapan",
+            Layanan: "Transjabodetabek",
+            Rute: "B11",
+            "Jumlah Rut": 1,
+            "Jumlah Pet": 3,
+            NAMOBJ: "Margamulya",
+            WADMKC: "Bekasi Utara",
+            WADMKK: "Kota Bekasi",
+            WADMPR: "Jawa Barat",
+            Luas: 262.892
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[[107.0010, -6.2255], [107.0018, -6.2255], [107.0018, -6.2248], [107.0010, -6.2248], [107.0010, -6.2255]]]
+          }
+        },
+        {
+          type: "Feature",
+          properties: {
+            Nama: "Bekasi Timur",
+            ID_Lahan: "L6",
+            ID_Petugas: "P6",
+            "Nama Titik": "BULAK KAPAL",
+            Bentuk: "Halte Pinggir",
+            Layanan: "Transjabodetabek",
+            Rute: "B21",
+            "Jumlah Rut": 1,
+            "Jumlah Pet": 4,
+            NAMOBJ: "Margahayu",
+            WADMKC: "Bekasi Timur",
+            WADMKK: "Kota Bekasi",
+            WADMPR: "Jawa Barat",
+            Luas: 229.005
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[[107.0225, -6.2565], [107.0233, -6.2565], [107.0233, -6.2558], [107.0225, -6.2558], [107.0225, -6.2565]]]
+          }
+        },
+        {
+          type: "Feature",
+          properties: {
+            Nama: "Flavor Bliss Alam Sutera",
+            ID_Lahan: "L1A",
+            ID_Petugas: "P1A",
+            "Nama Titik": "Flavor Bliss",
+            Bentuk: "Lahan Pengendapan",
+            Layanan: "Transjabodetabek",
+            Rute: "S61",
+            "Jumlah Rut": 1,
+            "Jumlah Pet": 3,
+            NAMOBJ: "Pakulonan",
+            WADMKC: "Serpong Utara",
+            WADMKK: "Kota Tangerang Selatan",
+            WADMPR: "Banten",
+            Luas: 410.5
+          },
+          geometry: {
+            type: "Polygon",
+            coordinates: [[[106.6525, -6.2412], [106.6534, -6.2412], [106.6534, -6.2404], [106.6525, -6.2404], [106.6525, -6.2412]]]
+          }
+        }
+      ]
+    };
+
+    const FALLBACK_PETUGAS = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P37", ID_Lahan: "L26", "Nama Titik": "KAMPUNG RAMBUTAN_1", Bentuk: "Terminal", Layanan: "BRT, Angkutan Umum", Rute: "7A, 7B, 7E", "Jumlah Rut": 6, "Jumlah Pet": 10, WADMKC: "Ciracas", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.8818, -6.3095] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P96", ID_Lahan: "L26", "Nama Titik": "KAMPUNG RAMBUTAN_2", Bentuk: "Terminal", Layanan: "Mikrotrans", Rute: "JAK.06, JAK.19", "Jumlah Rut": 4, "Jumlah Pet": 8, WADMKC: "Ciracas", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.8825, -6.3099] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P38", ID_Lahan: "L26", "Nama Titik": "KAMPUNG RAMBUTAN_3", Bentuk: "Terminal", Layanan: "Transjabodetabek", Rute: "S22, D11", "Jumlah Rut": 3, "Jumlah Pet": 8, WADMKC: "Ciracas", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.8822, -6.3091] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P57", ID_Lahan: "L42", "Nama Titik": "PINANG RANTI_1", Bentuk: "Terminal", Layanan: "BRT", Rute: "9, 9C", "Jumlah Rut": 2, "Jumlah Pet": 9, WADMKC: "Makasar", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.8902, -6.2915] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P58", ID_Lahan: "L42", "Nama Titik": "PINANG RANTI_2", Bentuk: "Terminal", Layanan: "Mikrotrans, Angkutan Umum", Rute: "4F, JAK.19, JAK.71", "Jumlah Rut": 3, "Jumlah Pet": 8, WADMKC: "Makasar", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.8909, -6.2919] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P8", ID_Lahan: "L8", "Nama Titik": "BLOK M_1", Bentuk: "Terminal", Layanan: "BRT", Rute: "1", "Jumlah Rut": 1, "Jumlah Pet": 9, WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.7995, -6.2435] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P9", ID_Lahan: "L8", "Nama Titik": "BLOK M_2", Bentuk: "Terminal", Layanan: "Angkutan Umum", Rute: "1C, 1E, 1M, 1P", "Jumlah Rut": 12, "Jumlah Pet": 10, WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.8002, -6.2438] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P11", ID_Lahan: "L8", "Nama Titik": "BLOK M_4", Bentuk: "Terminal", Layanan: "Transjabodetabek", Rute: "1W, P11, S61, T31", "Jumlah Rut": 4, "Jumlah Pet": 6, WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.8005, -6.2442] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P12", ID_Lahan: "L8", "Nama Titik": "BLOK M_5", Bentuk: "Terminal", Layanan: "Mikrotrans", Rute: "JAK.31", "Jumlah Rut": 1, "Jumlah Pet": 9, WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.7992, -6.2443] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P60", ID_Lahan: "L44", "Nama Titik": "Pondok Kelapa_1", Bentuk: "Lahan Pengendapan", Layanan: "Angkutan Umum, Mikrotrans", Rute: "7P, JAK.39, JAK.42", "Jumlah Rut": 3, "Jumlah Pet": 7, WADMKC: "Duren Sawit", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Point", coordinates: [106.9361, -6.2450] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P79", ID_Lahan: "L62", "Nama Titik": "SUMMARECON BEKASI", Bentuk: "Lahan Pengendapan", Layanan: "Transjabodetabek", Rute: "B11", "Jumlah Rut": 1, "Jumlah Pet": 3, WADMKC: "Bekasi Utara", WADMKK: "Kota Bekasi", WADMPR: "Jawa Barat" },
+          geometry: { type: "Point", coordinates: [107.0014, -6.2251] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P6", ID_Lahan: "L6", "Nama Titik": "BULAK KAPAL", Bentuk: "Halte Pinggir", Layanan: "Transjabodetabek", Rute: "B21", "Jumlah Rut": 1, "Jumlah Pet": 4, WADMKC: "Bekasi Timur", WADMKK: "Kota Bekasi", WADMPR: "Jawa Barat" },
+          geometry: { type: "Point", coordinates: [107.0229, -6.2561] }
+        },
+        {
+          type: "Feature",
+          properties: { ID_Petugas: "P1A", ID_Lahan: "L1A", "Nama Titik": "Flavor Bliss", Bentuk: "Lahan Pengendapan", Layanan: "Transjabodetabek", Rute: "S61", "Jumlah Rut": 1, "Jumlah Pet": 3, WADMKC: "Serpong Utara", WADMKK: "Kota Tangerang Selatan", WADMPR: "Banten" },
+          geometry: { type: "Point", coordinates: [106.6529, -6.2408] }
+        }
+      ]
+    };
+
+    const FALLBACK_WILAYAH = {
+      type: "FeatureCollection",
+      features: [
+        {
+          type: "Feature",
+          properties: { NAMOBJ: "Rambutan", WADMKC: "Ciracas", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Polygon", coordinates: [[[106.865, -6.330], [106.900, -6.330], [106.900, -6.298], [106.865, -6.298], [106.865, -6.330]]] }
+        },
+        {
+          type: "Feature",
+          properties: { NAMOBJ: "Pinangranti", WADMKC: "Makasar", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Polygon", coordinates: [[[106.870, -6.298], [106.915, -6.298], [106.915, -6.265], [106.870, -6.265], [106.870, -6.298]]] }
+        },
+        {
+          type: "Feature",
+          properties: { NAMOBJ: "Melawai", WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Polygon", coordinates: [[[106.780, -6.260], [106.820, -6.260], [106.820, -6.225], [106.780, -6.225], [106.780, -6.260]]] }
+        },
+        {
+          type: "Feature",
+          properties: { NAMOBJ: "Pondok Kelapa", WADMKC: "Duren Sawit", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
+          geometry: { type: "Polygon", coordinates: [[[106.915, -6.260], [106.955, -6.260], [106.955, -6.225], [106.915, -6.225], [106.915, -6.260]]] }
+        },
+        {
+          type: "Feature",
+          properties: { NAMOBJ: "Margamulya", WADMKC: "Bekasi Utara", WADMKK: "Kota Bekasi", WADMPR: "Jawa Barat" },
+          geometry: { type: "Polygon", coordinates: [[[106.985, -6.240], [107.025, -6.240], [107.025, -6.205], [106.985, -6.205], [106.985, -6.240]]] }
+        },
+        {
+          type: "Feature",
+          properties: { NAMOBJ: "Margahayu", WADMKC: "Bekasi Timur", WADMKK: "Kota Bekasi", WADMPR: "Jawa Barat" },
+          geometry: { type: "Polygon", coordinates: [[[107.005, -6.275], [107.045, -6.275], [107.045, -6.240], [107.005, -6.240], [107.005, -6.275]]] }
+        },
+        {
+          type: "Feature",
+          properties: { NAMOBJ: "Pakulonan", WADMKC: "Serpong Utara", WADMKK: "Kota Tangerang Selatan", WADMPR: "Banten" },
+          geometry: { type: "Polygon", coordinates: [[[106.635, -6.260], [106.675, -6.260], [106.675, -6.220], [106.635, -6.220], [106.635, -6.260]]] }
+        }
+      ]
+    };
+
+    // =========================================================================
+    // 3. STATE APLIKASI
+    // =========================================================================
+    const state = {
+      rawLahan: null,
+      rawPetugas: null,
+      rawWilayah: null,
+      dissolvedWilayahCache: {
+        provinsi: null,
+        kabkota: null,
+        kecamatan: null
+      },
+      currentBoundaryLevel: null,
+      lahanMapById: {},
+      filteredPetugas: [],
+      filteredLahan: [],
+      filters: {
+        search: '',
+        provinsi: '',
+        kabkota: '',
+        kecamatan: '',
+        layanan: '',
+        bentuk: ''
+      },
+      charts: {
+        wilayah: null,
+        layanan: null
+      }
+    };
+
+    // =========================================================================
+    // 4. INISIALISASI PETA & BASEMAP ESRI (MAX ZOOM +3 STEP HINGGA LEVEL 22)
+    // =========================================================================
+    const esriGray = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+      maxNativeZoom: 16,
+      maxZoom: 22
+    });
+
+    const esriGrayRef = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxNativeZoom: 16,
+      maxZoom: 22
+    });
+
+    const esriCanvasGroup = L.layerGroup([esriGray, esriGrayRef]);
+
+    const esriStreet = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri',
+      maxNativeZoom: 19,
+      maxZoom: 22
+    });
+
+    const esriSatellite = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: 'Tiles &copy; Esri',
+      maxNativeZoom: 19,
+      maxZoom: 22
+    });
+
+    const map = L.map('map', {
+      center: [-6.255, 106.855],
+      zoom: 11,
+      maxZoom: 22,
+      layers: [esriCanvasGroup],
+      zoomControl: false
+    });
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+    L.control.layers({
+      'Kanvas Terang (Esri Gray)': esriCanvasGroup,
+      'Peta Jalan (Esri Street)': esriStreet,
+      'Citra Satelit (Esri Imagery)': esriSatellite
+    }, null, { position: 'bottomright', collapsed: true }).addTo(map);
+
+    const wilayahLayerGroup = L.layerGroup().addTo(map);
+    const lahanLayerGroup = L.layerGroup().addTo(map);
+    const petugasLayerGroup = L.layerGroup().addTo(map);
+
+    // =========================================================================
+    // 5. PEMUATAN FILE GEOJSON OTOMATIS DARI REPOSITORY
+    // =========================================================================
+    async function loadGeoJSONFiles() {
+      const badge = document.getElementById('data-source-badge');
+      let loadedLiveCount = 0;
+
+      async function fetchOrFallback(url, fallbackData) {
+        try {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json = await res.json();
+          if (json && Array.isArray(json.features)) {
+            loadedLiveCount++;
+            return json;
+          }
+          throw new Error('GeoJSON salah');
+        } catch (err) {
+          console.warn(`Menggunakan data fallback untuk ${url}:`, err.message);
+          return fallbackData;
+        }
+      }
+
+      const [lahanData, petugasData, wilayahData] = await Promise.all([
+        fetchOrFallback('./INIFIX_Aman.geojson', FALLBACK_LAHAN),
+        fetchOrFallback('./Petugas_JSON.geojson', FALLBACK_PETUGAS),
+        fetchOrFallback('./Wilayah_kec.geojson', FALLBACK_WILAYAH)
+      ]);
+
+      state.rawLahan = lahanData;
+      state.rawPetugas = petugasData;
+      state.rawWilayah = wilayahData;
+
+      // Siapkan cache batas wilayah (Kecamatan, Kab/Kota, Provinsi)
+      prepareBoundaryLevels();
+
+      // Bangun lookup ID_Lahan untuk memperkaya data wilayah & luas pada Pos Petugas
+      state.lahanMapById = {};
+      (state.rawLahan.features || []).forEach(f => {
+        const p = f.properties || {};
+        if (p.ID_Lahan) {
+          state.lahanMapById[String(p.ID_Lahan).trim()] = p;
+        }
+      });
+
+      // Normalisasi properti administratif pada fitur Petugas dari Lahan induk jika kosong
+      (state.rawPetugas.features || []).forEach(f => {
+        const p = f.properties || {};
+        const parentLahan = state.lahanMapById[String(p.ID_Lahan || '').trim()] || {};
+        p.WADMKC = p.WADMKC || parentLahan.WADMKC || 'Tidak Diketahui';
+        p.WADMKK = p.WADMKK || parentLahan.WADMKK || 'Tidak Diketahui';
+        p.WADMPR = p.WADMPR || parentLahan.WADMPR || 'Tidak Diketahui';
+        p.NAMOBJ = p.NAMOBJ || parentLahan.NAMOBJ || '';
+        p.LuasLahan = Number(parentLahan.Luas) || 0;
+        p.NamaLahan = parentLahan.Nama || p['Nama Titik'] || p.ID_Lahan || '-';
+      });
+
+      if (loadedLiveCount === 3) {
+        badge.textContent = 'Online';
+        badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30';
+      } else {
+        badge.textContent = `Online (${loadedLiveCount})`;
+        badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30';
+      }
+
+      populateFilterDropdowns();
+      renderWilayahBoundaries(true);
+      applyFiltersAndRender();
+      fitMapToData();
+    }
+
+    // =========================================================================
+    // 6. BATAS WILAYAH DINAMIS MENGIKUTI LEVEL KLASTER (PROVINSI / KABKOTA / KEC)
+    // =========================================================================
+    function getZoomModeInfo(zoom) {
+      if (zoom <= 9) return { key: 'provinsi', prop: 'WADMPR', label: 'PROVINSI' };
+      if (zoom <= 11) return { key: 'kabkota', prop: 'WADMKK', label: 'KABUPATEN/KOTA' };
+      if (zoom <= 13) return { key: 'kecamatan', prop: 'WADMKC', label: 'KECAMATAN' };
+      return { key: 'detail', prop: 'WADMKC', label: 'PER TITIK (< 1:50.000)' };
+    }
+
+    function dissolveByProperty(geojson, propName) {
+      if (!geojson || !geojson.features || typeof turf === 'undefined') return geojson;
+      try {
+        // Filter hanya geometri poligon/multipoligon valid dengan properti tidak kosong
+        const validPolys = {
+          type: 'FeatureCollection',
+          features: geojson.features
+            .filter(f => f && f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'))
+            .map(f => ({
+              type: 'Feature',
+              properties: {
+                [propName]: (f.properties && f.properties[propName]) ? String(f.properties[propName]).trim() : 'Lainnya'
+              },
+              geometry: f.geometry
+            }))
         };
-
-        const SERVICE_DISPLAY_ORDER = ['BRT', 'Angkutan Umum', 'Mikrotrans', 'Transjabodetabek', 'Royaltrans', 'Lainnya'];
-
-        function parseLayananList(rawLayanan) {
-            if (!rawLayanan || String(rawLayanan).toUpperCase() === 'NULL') {
-                return ['Lainnya'];
-            }
-            const items = String(rawLayanan)
-                .split(',')
-                .map(s => s.trim())
-                .filter(Boolean);
-
-            return items.length > 0 ? items : ['Lainnya'];
-        }
-
-        function getServiceStyle(serviceName) {
-            if (SERVICE_COLOR_MAP[serviceName]) {
-                return SERVICE_COLOR_MAP[serviceName];
-            }
-            const lower = serviceName.toLowerCase();
-            if (lower.includes('brt')) return SERVICE_COLOR_MAP['BRT'];
-            if (lower.includes('angkutan')) return SERVICE_COLOR_MAP['Angkutan Umum'];
-            if (lower.includes('mikro')) return SERVICE_COLOR_MAP['Mikrotrans'];
-            if (lower.includes('transjabodetabek')) return SERVICE_COLOR_MAP['Transjabodetabek'];
-            if (lower.includes('royal')) return SERVICE_COLOR_MAP['Royaltrans'];
-            return { ...SERVICE_COLOR_MAP['Lainnya'], label: serviceName };
-        }
-
-        function buildLayananVerticalListHTML(rawLayanan) {
-            const list = parseLayananList(rawLayanan);
-            return `
-                <ul class="space-y-1.5 mt-1">
-                    ${list.map(item => {
-                        const style = getServiceStyle(item);
-                        return `
-                            <li class="flex items-center gap-2 px-2.5 py-1 rounded-lg border ${style.badgeBg} ${style.badgeText} ${style.border} text-xs font-semibold">
-                                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${style.hex};"></span>
-                                <span>${item}</span>
-                            </li>
-                        `;
-                    }).join('')}
-                </ul>
-            `;
-        }
-
-        // =========================================================================
-        // 2. FALLBACK DATASET (Digunakan otomatis jika file:// memblokir fetch)
-        // =========================================================================
-        const FALLBACK_INIFIX_AMAN = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "Nama": "Terminal Kampung Rambutan",
-                        "ID_Lahan": "L26",
-                        "ID_Petugas": "P37, P96, P38",
-                        "Nama Titik": "KAMPUNG RAMBUTAN",
-                        "Bentuk": "Terminal",
-                        "Layanan": "BRT, Angkutan Umum, Mikrotrans",
-                        "Rute": "7A, 7B, 7E, S22",
-                        "Jumlah Rut": 13,
-                        "Jumlah Pet": 26,
-                        "NAMOBJ": "Rambutan",
-                        "WADMKC": "Ciracas",
-                        "WADMKK": "Kota Adm. Jakarta Timur",
-                        "WADMPR": "DKI Jakarta",
-                        "Luas": 20400.904
-                    },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[[106.8805, -6.3082], [106.8832, -6.3082], [106.8832, -6.3106], [106.8805, -6.3106], [106.8805, -6.3082]]]
-                    }
-                },
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "Nama": "Terminal Pinang Ranti",
-                        "ID_Lahan": "L42",
-                        "ID_Petugas": "P57, P58, P100",
-                        "Nama Titik": "PINANG RANTI_1",
-                        "Bentuk": "Terminal",
-                        "Layanan": "BRT, Angkutan Umum, Mikrotrans",
-                        "Rute": "4F, 9, 9C, JAK.19",
-                        "Jumlah Rut": 5,
-                        "Jumlah Pet": 17,
-                        "NAMOBJ": "Pinangranti",
-                        "WADMKC": "Makasar",
-                        "WADMKK": "Kota Adm. Jakarta Timur",
-                        "WADMPR": "DKI Jakarta",
-                        "Luas": 23515.343
-                    },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[[106.8895, -6.2905], [106.8920, -6.2905], [106.8920, -6.2928], [106.8895, -6.2928], [106.8895, -6.2905]]]
-                    }
-                },
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "Nama": "Pondok Kelapa",
-                        "ID_Lahan": "L44",
-                        "ID_Petugas": "P60, P61",
-                        "Nama Titik": "Pondok Kelapa_1",
-                        "Bentuk": "Lahan Pengendapan",
-                        "Layanan": "Angkutan Umum, Mikrotrans",
-                        "Rute": "7P, JAK.39, JAK.42",
-                        "Jumlah Rut": 3,
-                        "Jumlah Pet": 7,
-                        "NAMOBJ": "Pondok Kelapa",
-                        "WADMKC": "Duren Sawit",
-                        "WADMKK": "Kota Adm. Jakarta Timur",
-                        "WADMPR": "DKI Jakarta",
-                        "Luas": 4909.38
-                    },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[[106.9355, -6.2442], [106.9372, -6.2442], [106.9372, -6.2456], [106.9355, -6.2456], [106.9355, -6.2442]]]
-                    }
-                },
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "Nama": "Summarecon Bekasi",
-                        "ID_Lahan": "L62",
-                        "ID_Petugas": "P79",
-                        "Nama Titik": "SUMMARECON BEKASI",
-                        "Bentuk": "Lahan Pengendapan",
-                        "Layanan": "Transjabodetabek",
-                        "Rute": "B11",
-                        "Jumlah Rut": 1,
-                        "Jumlah Pet": 3,
-                        "NAMOBJ": "Margamulya",
-                        "WADMKC": "Bekasi Utara",
-                        "WADMKK": "Kota Bekasi",
-                        "WADMPR": "Jawa Barat",
-                        "Luas": 262.892
-                    },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[[107.0005, -6.2248], [107.0016, -6.2248], [107.0016, -6.2258], [107.0005, -6.2258], [107.0005, -6.2248]]]
-                    }
-                },
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "Nama": "Bekasi Timur",
-                        "ID_Lahan": "L6",
-                        "ID_Petugas": "P6",
-                        "Nama Titik": "BULAK KAPAL",
-                        "Bentuk": "Halte Pinggir",
-                        "Layanan": "Transjabodetabek",
-                        "Rute": "B21",
-                        "Jumlah Rut": 1,
-                        "Jumlah Pet": 4,
-                        "NAMOBJ": "Margahayu",
-                        "WADMKC": "Bekasi Timur",
-                        "WADMKK": "Kota Bekasi",
-                        "WADMPR": "Jawa Barat",
-                        "Luas": 229.005
-                    },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[[107.0155, -6.2562], [107.0166, -6.2562], [107.0166, -6.2571], [107.0155, -6.2571], [107.0155, -6.2562]]]
-                    }
-                },
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "Nama": "Terminal Blok M",
-                        "ID_Lahan": "L8",
-                        "ID_Petugas": "P8, P9, P10, P11, P12, P13",
-                        "Nama Titik": "BLOK M_1",
-                        "Bentuk": "Terminal",
-                        "Layanan": "BRT, Angkutan Umum, Mikrotrans, Transjabodetabek",
-                        "Rute": "1, 1C, 1E, 1M, 1P, S61",
-                        "Jumlah Rut": 31,
-                        "Jumlah Pet": 34,
-                        "NAMOBJ": "Melawai",
-                        "WADMKC": "Kebayoran Baru",
-                        "WADMKK": "Kota Adm. Jakarta Selatan",
-                        "WADMPR": "DKI Jakarta",
-                        "Luas": 18250.5
-                    },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[[106.8002, -6.2428], [106.8028, -6.2428], [106.8028, -6.2449], [106.8002, -6.2449], [106.8002, -6.2428]]]
-                    }
-                },
-                {
-                    "type": "Feature",
-                    "properties": {
-                        "Nama": "Flavor Bliss Alam Sutera",
-                        "ID_Lahan": "L1A",
-                        "ID_Petugas": "P1A",
-                        "Nama Titik": "Flavor Bliss",
-                        "Bentuk": "Lahan Pengendapan",
-                        "Layanan": "Transjabodetabek",
-                        "Rute": "S61",
-                        "Jumlah Rut": 1,
-                        "Jumlah Pet": 3,
-                        "NAMOBJ": "Pakulonan",
-                        "WADMKC": "Serpong Utara",
-                        "WADMKK": "Kota Tangerang Selatan",
-                        "WADMPR": "Banten",
-                        "Luas": 1150.25
-                    },
-                    "geometry": {
-                        "type": "Polygon",
-                        "coordinates": [[[106.6512, -6.2415], [106.6528, -6.2415], [106.6528, -6.2428], [106.6512, -6.2428], [106.6512, -6.2415]]]
-                    }
-                }
-            ]
-        };
-
-        const FALLBACK_PETUGAS_JSON = {
-            "type": "FeatureCollection",
-            "features": [
-                { "type": "Feature", "properties": { "ID_Petugas": "P37", "ID_Lahan": "L26", "Nama Titik": "KAMPUNG RAMBUTAN_1", "Bentuk": "Terminal", "Layanan": "BRT, Angkutan Umum", "Rute": "7A, 7B, 7E", "Jumlah Rut": 5, "Jumlah Pet": 12 }, "geometry": { "type": "Point", "coordinates": [106.8814, -6.3092] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P38", "ID_Lahan": "L26", "Nama Titik": "KAMPUNG RAMBUTAN_2", "Bentuk": "Terminal", "Layanan": "BRT, Mikrotrans", "Rute": "7, JAK.06", "Jumlah Rut": 8, "Jumlah Pet": 14 }, "geometry": { "type": "Point", "coordinates": [106.8824, -6.3098] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P57", "ID_Lahan": "L42", "Nama Titik": "PINANG RANTI_1", "Bentuk": "Terminal", "Layanan": "BRT, Mikrotrans", "Rute": "9, 9C, JAK.19", "Jumlah Rut": 5, "Jumlah Pet": 17 }, "geometry": { "type": "Point", "coordinates": [106.8907, -6.2916] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P60", "ID_Lahan": "L44", "Nama Titik": "Pondok Kelapa_1", "Bentuk": "Lahan Pengendapan", "Layanan": "Angkutan Umum, Mikrotrans", "Rute": "7P, JAK.39", "Jumlah Rut": 3, "Jumlah Pet": 7 }, "geometry": { "type": "Point", "coordinates": [106.9363, -6.2449] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P79", "ID_Lahan": "L62", "Nama Titik": "SUMMARECON BEKASI", "Bentuk": "Lahan Pengendapan", "Layanan": "Transjabodetabek", "Rute": "B11", "Jumlah Rut": 1, "Jumlah Pet": 3 }, "geometry": { "type": "Point", "coordinates": [107.0010, -6.2253] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P6", "ID_Lahan": "L6", "Nama Titik": "BULAK KAPAL", "Bentuk": "Halte Pinggir", "Layanan": "Transjabodetabek", "Rute": "B21", "Jumlah Rut": 1, "Jumlah Pet": 4 }, "geometry": { "type": "Point", "coordinates": [107.0160, -6.2566] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P8", "ID_Lahan": "L8", "Nama Titik": "BLOK M_1", "Bentuk": "Terminal", "Layanan": "BRT", "Rute": "1", "Jumlah Rut": 1, "Jumlah Pet": 18 }, "geometry": { "type": "Point", "coordinates": [106.8012, -6.2435] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P9", "ID_Lahan": "L8", "Nama Titik": "BLOK M_2", "Bentuk": "Terminal", "Layanan": "Angkutan Umum, Mikrotrans", "Rute": "1C, 1E, 1M", "Jumlah Rut": 12, "Jumlah Pet": 16 }, "geometry": { "type": "Point", "coordinates": [106.8020, -6.2442] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P11", "ID_Lahan": "L8", "Nama Titik": "BLOK M_4", "Bentuk": "Terminal", "Layanan": "Transjabodetabek", "Rute": "1W, P11, S61", "Jumlah Rut": 4, "Jumlah Pet": 9 }, "geometry": { "type": "Point", "coordinates": [106.8015, -6.2446] } },
-                { "type": "Feature", "properties": { "ID_Petugas": "P1A", "ID_Lahan": "L1A", "Nama Titik": "Flavor Bliss", "Bentuk": "Lahan Pengendapan", "Layanan": "Transjabodetabek", "Rute": "S61", "Jumlah Rut": 1, "Jumlah Pet": 3 }, "geometry": { "type": "Point", "coordinates": [106.6520, -6.2421] } }
-            ]
-        };
-
-        const FALLBACK_WILAYAH_KEC = {
-            "type": "FeatureCollection",
-            "features": [
-                {
-                    "type": "Feature",
-                    "properties": { "NAMOBJ": "Rambutan", "WADMKC": "Ciracas", "WADMKD": "Rambutan", "WADMKK": "Kota Adm. Jakarta Timur", "WADMPR": "DKI Jakarta" },
-                    "geometry": { "type": "Polygon", "coordinates": [[[106.865, -6.295], [106.895, -6.295], [106.895, -6.335], [106.865, -6.335], [106.865, -6.295]]] }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "NAMOBJ": "Pinangranti", "WADMKC": "Makasar", "WADMKD": "Pinangranti", "WADMKK": "Kota Adm. Jakarta Timur", "WADMPR": "DKI Jakarta" },
-                    "geometry": { "type": "Polygon", "coordinates": [[[106.875, -6.265], [106.915, -6.265], [106.915, -6.295], [106.875, -6.295], [106.875, -6.265]]] }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "NAMOBJ": "Pondok Kelapa", "WADMKC": "Duren Sawit", "WADMKD": "Pondok Kelapa", "WADMKK": "Kota Adm. Jakarta Timur", "WADMPR": "DKI Jakarta" },
-                    "geometry": { "type": "Polygon", "coordinates": [[[106.915, -6.220], [106.955, -6.220], [106.955, -6.265], [106.915, -6.265], [106.915, -6.220]]] }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "NAMOBJ": "Melawai", "WADMKC": "Kebayoran Baru", "WADMKD": "Melawai", "WADMKK": "Kota Adm. Jakarta Selatan", "WADMPR": "DKI Jakarta" },
-                    "geometry": { "type": "Polygon", "coordinates": [[[106.785, -6.225], [106.820, -6.225], [106.820, -6.260], [106.785, -6.260], [106.785, -6.225]]] }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "NAMOBJ": "Margamulya", "WADMKC": "Bekasi Utara", "WADMKD": "Margamulya", "WADMKK": "Kota Bekasi", "WADMPR": "Jawa Barat" },
-                    "geometry": { "type": "Polygon", "coordinates": [[[106.985, -6.200], [107.025, -6.200], [107.025, -6.240], [106.985, -6.240], [106.985, -6.200]]] }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "NAMOBJ": "Margahayu", "WADMKC": "Bekasi Timur", "WADMKD": "Margahayu", "WADMKK": "Kota Bekasi", "WADMPR": "Jawa Barat" },
-                    "geometry": { "type": "Polygon", "coordinates": [[[107.000, -6.240], [107.035, -6.240], [107.035, -6.275], [107.000, -6.275], [107.000, -6.240]]] }
-                },
-                {
-                    "type": "Feature",
-                    "properties": { "NAMOBJ": "Pakulonan", "WADMKC": "Serpong Utara", "WADMKD": "Pakulonan", "WADMKK": "Kota Tangerang Selatan", "WADMPR": "Banten" },
-                    "geometry": { "type": "Polygon", "coordinates": [[[106.635, -6.225], [106.675, -6.225], [106.675, -6.265], [106.635, -6.265], [106.635, -6.225]]] }
-                }
-            ]
-        };
-
-        // =========================================================================
-        // 3. APPLICATION STATE & MAP LAYERS
-        // =========================================================================
-        let map;
-        let rawLahanData = null;      // INIFIX_Aman.geojson
-        let rawPetugasData = null;    // Petugas_JSON.geojson
-        let rawWilayahData = null;    // Wilayah_kec.geojson
-
-        let enrichedPetugasFeatures = []; // Petugas_JSON dengan info wilayah & layanan terurai
-        let filteredPetugasFeatures = [];
-        let filteredLahanFeatures = [];
-
-        // Metric mode pada pil klaster: 'petugas' (sum Jumlah Pet) atau 'pos' (count ID_Petugas)
-        let clusterMetricMode = 'petugas';
-
-        // Leaflet Layer Groups
-        const layerWilayahGroup = L.layerGroup();
-        const layerLahanPolygons = L.featureGroup();
-        const layerPetugasPoints = L.featureGroup();
-        const layerRegionalClusters = L.featureGroup();
-
-        // Chart.js Instances
-        let chartWilayahInstance = null;
-        let chartLayananInstance = null;
-
-        // =========================================================================
-        // 4. INITIALIZATION & AUTOMATIC GEOJSON FETCHING
-        // =========================================================================
-        window.onload = async function () {
-            initMap();
-            await loadAllGeoJSONFiles();
-            enrichPetugasWithAdminAndServices();
-            renderMapServiceLegend();
-            populateFilterDropdowns();
-            setupEventListeners();
-            applyFiltersAndRender();
-        };
-
-        function initMap() {
-            map = L.map('map', {
-                zoomControl: false
-            }).setView([-6.245, 106.850], 11);
-
-            L.control.zoom({ position: 'topright' }).addTo(map);
-
-            // Basemap utama: Esri World Gray Canvas (tampilan terang bersih seperti gambar referensi)
-            const esriGrayCanvas = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 19,
-                maxNativeZoom: 16,
-                attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ'
-            });
-
-            const esriGrayReference = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 19,
-                maxNativeZoom: 16,
-                pane: 'overlayPane'
-            });
-
-            const esriGrayGroup = L.layerGroup([esriGrayCanvas, esriGrayReference]);
-
-            const esriStreet = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 19,
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, HERE, Garmin, USGS'
-            });
-
-            const esriImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                maxZoom: 19,
-                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics'
-            });
-
-            esriGrayGroup.addTo(map);
-
-            const baseMaps = {
-                "Kanvas Terang (Esri Gray)": esriGrayGroup,
-                "Peta Jalan (Esri Street)": esriStreet,
-                "Citra Satelit (Esri Imagery)": esriImagery
-            };
-            L.control.layers(baseMaps, null, { position: 'topleft' }).addTo(map);
-
-            // Add Layer Groups in clean Z-Order
-            layerWilayahGroup.addTo(map);
-            layerLahanPolygons.addTo(map);
-            layerPetugasPoints.addTo(map);
-            layerRegionalClusters.addTo(map);
-
-            // Listen to Zoom Events for Semantic Multi-Scale Clustering
-            map.on('zoomend', () => {
-                renderMapByZoomScale();
-            });
-        }
-
-        async function loadAllGeoJSONFiles() {
-            const statusPill = document.getElementById('data-source-pill');
-            let loadedFromRepo = 0;
-
-            try {
-                const [resLahan, resPetugas, resWilayah] = await Promise.allSettled([
-                    fetch('./INIFIX_Aman.geojson'),
-                    fetch('./Petugas_JSON.geojson'),
-                    fetch('./Wilayah_kec.geojson')
-                ]);
-
-                if (resLahan.status === 'fulfilled' && resLahan.value.ok) {
-                    rawLahanData = await resLahan.value.json();
-                    loadedFromRepo++;
-                } else {
-                    rawLahanData = FALLBACK_INIFIX_AMAN;
-                }
-
-                if (resPetugas.status === 'fulfilled' && resPetugas.value.ok) {
-                    rawPetugasData = await resPetugas.value.json();
-                    loadedFromRepo++;
-                } else {
-                    rawPetugasData = FALLBACK_PETUGAS_JSON;
-                }
-
-                if (resWilayah.status === 'fulfilled' && resWilayah.value.ok) {
-                    rawWilayahData = await resWilayah.value.json();
-                    loadedFromRepo++;
-                } else {
-                    rawWilayahData = FALLBACK_WILAYAH_KEC;
-                }
-
-                if (loadedFromRepo === 3) {
-                    statusPill.innerText = 'Live GeoJSON (3 File)';
-                    statusPill.className = 'text-[10px] font-semibold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
-                } else {
-                    statusPill.innerText = `Mode Preview (${loadedFromRepo}/3 File)`;
-                    statusPill.className = 'text-[10px] font-semibold px-2.5 py-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
-                }
-            } catch (err) {
-                rawLahanData = FALLBACK_INIFIX_AMAN;
-                rawPetugasData = FALLBACK_PETUGAS_JSON;
-                rawWilayahData = FALLBACK_WILAYAH_KEC;
-                statusPill.innerText = 'Sample Data Aktif';
-            }
-
-            renderWilayahBoundaries();
-        }
-
-        // =========================================================================
-        // 5. SPATIAL JOIN & DATA ENRICHMENT (Petugas_JSON + INIFIX_Aman + Wilayah_kec)
-        // =========================================================================
-        function enrichPetugasWithAdminAndServices() {
-            const lahanLookup = new Map();
-            (rawLahanData?.features || []).forEach(f => {
-                const p = f.properties || {};
-                try {
-                    f._centroid = turf.centroid(f).geometry.coordinates;
-                } catch (e) {
-                    f._centroid = [106.827, -6.175];
-                }
-                f._layananList = parseLayananList(p.Layanan);
-                if (p.ID_Lahan) {
-                    lahanLookup.set(String(p.ID_Lahan).trim(), p);
-                }
-            });
-
-            const wilayahFeatures = rawWilayahData?.features || [];
-
-            enrichedPetugasFeatures = (rawPetugasData?.features || []).map(feat => {
-                const p = { ...(feat.properties || {}) };
-                let coords = [106.827, -6.175];
-                try {
-                    if (feat.geometry?.type === 'Point') {
-                        coords = feat.geometry.coordinates;
-                    } else if (feat.geometry) {
-                        coords = turf.centroid(feat).geometry.coordinates;
-                    }
-                } catch (e) {}
-
-                // 1. Cocokkan wilayah dari ID_Lahan di INIFIX_Aman
-                const linkedLahan = p.ID_Lahan ? lahanLookup.get(String(p.ID_Lahan).trim()) : null;
-                if (linkedLahan) {
-                    p.WADMKC = p.WADMKC || linkedLahan.WADMKC;
-                    p.WADMKK = p.WADMKK || linkedLahan.WADMKK;
-                    p.WADMPR = p.WADMPR || linkedLahan.WADMPR;
-                    p.NAMOBJ = p.NAMOBJ || linkedLahan.NAMOBJ;
-                    p.Nama_Lahan = linkedLahan.Nama;
-                }
-
-                // 2. Fallback Spatial Point-in-Polygon ke Wilayah_kec.geojson jika atribut wilayah belum ada
-                if (!p.WADMKC || !p.WADMKK) {
-                    const pt = turf.point(coords);
-                    for (let i = 0; i < wilayahFeatures.length; i++) {
-                        try {
-                            if (turf.booleanPointInPolygon(pt, wilayahFeatures[i])) {
-                                const wp = wilayahFeatures[i].properties || {};
-                                p.WADMKC = p.WADMKC || wp.WADMKC;
-                                p.WADMKK = p.WADMKK || wp.WADMKK;
-                                p.WADMPR = p.WADMPR || wp.WADMPR;
-                                p.NAMOBJ = p.NAMOBJ || wp.NAMOBJ;
-                                break;
-                            }
-                        } catch (e) {}
-                    }
-                }
-
-                p.WADMKC = p.WADMKC || 'Tidak Diketahui';
-                p.WADMKK = p.WADMKK || 'Tidak Diketahui';
-                p.WADMPR = p.WADMPR || 'Tidak Diketahui';
-
-                return {
-                    ...feat,
-                    properties: p,
-                    _centroid: coords,
-                    _layananList: parseLayananList(p.Layanan)
-                };
-            });
-        }
-
-        // =========================================================================
-        // 6. FILTERING & DROPDOWN POPULATION
-        // =========================================================================
-        function renderMapServiceLegend() {
-            const legendContainer = document.getElementById('map-service-legend');
-            const items = ['BRT', 'Angkutan Umum', 'Mikrotrans', 'Transjabodetabek', 'Royaltrans', 'Lainnya'];
-            legendContainer.innerHTML = items.map(name => {
-                const s = SERVICE_COLOR_MAP[name];
-                return `
-                    <div class="flex items-center gap-1.5 truncate">
-                        <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background-color: ${s.hex};"></span>
-                        <span class="text-slate-700 font-medium truncate">${s.label}</span>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function populateFilterDropdowns() {
-            const provSet = new Set();
-            const kabSet = new Set();
-            const kecSet = new Set();
-            const bentukSet = new Set();
-            const layananSet = new Set();
-
-            enrichedPetugasFeatures.forEach(f => {
-                const p = f.properties || {};
-                if (p.WADMPR && p.WADMPR !== 'Tidak Diketahui') provSet.add(p.WADMPR);
-                if (p.WADMKK && p.WADMKK !== 'Tidak Diketahui') kabSet.add(p.WADMKK);
-                if (p.WADMKC && p.WADMKC !== 'Tidak Diketahui') kecSet.add(p.WADMKC);
-                if (p.Bentuk) bentukSet.add(p.Bentuk);
-                (f._layananList || []).forEach(l => layananSet.add(l));
-            });
-
-            fillSelect('filter-prov', Array.from(provSet).sort(), 'Semua Provinsi');
-            fillSelect('filter-kab', Array.from(kabSet).sort(), 'Semua Kab/Kota');
-            fillSelect('filter-kec', Array.from(kecSet).sort(), 'Semua Kecamatan');
-            fillSelect('filter-layanan', Array.from(layananSet).sort(), 'Semua Jenis Layanan');
-            fillSelect('filter-bentuk', Array.from(bentukSet).sort(), 'Semua Bentuk');
-        }
-
-        function fillSelect(elementId, items, defaultLabel) {
-            const select = document.getElementById(elementId);
-            const currentVal = select.value;
-            select.innerHTML = `<option value="ALL">${defaultLabel}</option>`;
-            items.forEach(item => {
-                const opt = document.createElement('option');
-                opt.value = item;
-                opt.textContent = item;
-                select.appendChild(opt);
-            });
-            if (items.includes(currentVal)) {
-                select.value = currentVal;
-            }
-        }
-
-        function updateCascadingAdminDropdowns() {
-            const selectedProv = document.getElementById('filter-prov').value;
-            const selectedKab = document.getElementById('filter-kab').value;
-
-            const kabSet = new Set();
-            const kecSet = new Set();
-
-            enrichedPetugasFeatures.forEach(f => {
-                const p = f.properties || {};
-                if (selectedProv === 'ALL' || p.WADMPR === selectedProv) {
-                    if (p.WADMKK && p.WADMKK !== 'Tidak Diketahui') kabSet.add(p.WADMKK);
-                    if (selectedKab === 'ALL' || p.WADMKK === selectedKab) {
-                        if (p.WADMKC && p.WADMKC !== 'Tidak Diketahui') kecSet.add(p.WADMKC);
-                    }
-                }
-            });
-
-            fillSelect('filter-kab', Array.from(kabSet).sort(), 'Semua Kab/Kota');
-            fillSelect('filter-kec', Array.from(kecSet).sort(), 'Semua Kecamatan');
-        }
-
-        function applyFiltersAndRender() {
-            const searchQuery = document.getElementById('filter-search').value.toLowerCase().trim();
-            const provVal = document.getElementById('filter-prov').value;
-            const kabVal = document.getElementById('filter-kab').value;
-            const kecVal = document.getElementById('filter-kec').value;
-            const layananVal = document.getElementById('filter-layanan').value;
-            const bentukVal = document.getElementById('filter-bentuk').value;
-
-            // Filter utama berdasarkan data Pos Petugas (Petugas_JSON)
-            filteredPetugasFeatures = enrichedPetugasFeatures.filter(f => {
-                const p = f.properties || {};
-                const matchProv = provVal === 'ALL' || p.WADMPR === provVal;
-                const matchKab = kabVal === 'ALL' || p.WADMKK === kabVal;
-                const matchKec = kecVal === 'ALL' || p.WADMKC === kecVal;
-                const matchBentuk = bentukVal === 'ALL' || p.Bentuk === bentukVal;
-                const matchLayanan = layananVal === 'ALL' || (f._layananList || []).includes(layananVal);
-
-                const matchSearch = !searchQuery || [
-                    p.ID_Petugas, p.ID_Lahan, p['Nama Titik'], p.Nama_Lahan,
-                    p.Rute, p.Layanan, p.WADMKC, p.WADMKK
-                ].some(val => val && String(val).toLowerCase().includes(searchQuery));
-
-                return matchProv && matchKab && matchKec && matchBentuk && matchLayanan && matchSearch;
-            });
-
-            // Sinkronkan poligon lahan yang tampil pada zoom detail
-            const activeLahanIds = new Set(filteredPetugasFeatures.map(f => String(f.properties?.ID_Lahan || '').trim()).filter(Boolean));
-            filteredLahanFeatures = (rawLahanData?.features || []).filter(f => {
-                const p = f.properties || {};
-                if (activeLahanIds.size > 0 && p.ID_Lahan) {
-                    return activeLahanIds.has(String(p.ID_Lahan).trim());
-                }
-                const matchProv = provVal === 'ALL' || p.WADMPR === provVal;
-                const matchKab = kabVal === 'ALL' || p.WADMKK === kabVal;
-                const matchKec = kecVal === 'ALL' || p.WADMKC === kecVal;
-                const matchLayanan = layananVal === 'ALL' || (f._layananList || []).includes(layananVal);
-                return matchProv && matchKab && matchKec && matchLayanan;
-            });
-
-            updateDashboardStatistics();
-            renderFilteredLocationList();
-            renderMapByZoomScale();
-        }
-
-        // =========================================================================
-        // 7. MULTI-SCALE SEMANTIC ZOOM & SEGMENTED CLUSTER PILLS (SCREENSHOT 2)
-        // =========================================================================
-        function setClusterMetric(mode) {
-            clusterMetricMode = mode;
-            const btnPet = document.getElementById('metric-btn-petugas');
-            const btnPos = document.getElementById('metric-btn-pos');
-            if (mode === 'petugas') {
-                btnPet.className = 'py-1 px-1.5 rounded-md bg-white text-slate-800 shadow-sm transition';
-                btnPos.className = 'py-1 px-1.5 rounded-md text-slate-500 hover:text-slate-800 transition';
-            } else {
-                btnPos.className = 'py-1 px-1.5 rounded-md bg-white text-slate-800 shadow-sm transition';
-                btnPet.className = 'py-1 px-1.5 rounded-md text-slate-500 hover:text-slate-800 transition';
-            }
-            renderMapByZoomScale();
-        }
-
-        function renderMapByZoomScale() {
-            const zoom = map.getZoom();
-            document.getElementById('zoom-scale-info').innerText = `Zoom ${zoom}`;
-
-            const modeTitle = document.getElementById('scale-mode-title');
-            const modePill = document.getElementById('cluster-mode-pill');
-
-            layerLahanPolygons.clearLayers();
-            layerPetugasPoints.clearLayers();
-            layerRegionalClusters.clearLayers();
-
-            // TIER 1: ZOOM >= 14 -> DETAIL POLIGON & TITIK POS PETUGAS
-            if (zoom >= 14) {
-                modePill.className = 'px-4 py-1.5 rounded-full bg-emerald-700 text-white shadow-lg border border-emerald-400/40 flex items-center gap-2 text-xs font-bold tracking-wide';
-                modeTitle.innerText = 'Detail: POS PETUGAS & LAHAN';
-                renderDetailedPolygonsAndPoints();
-                return;
-            }
-
-            // TIER 2, 3, 4: ZOOM <= 13 -> PIL KLASTER MULTI-SEGMEN BERDASARKAN WILAYAH
-            modePill.className = 'px-4 py-1.5 rounded-full bg-[#1e3a8a] text-white shadow-lg border border-blue-400/30 flex items-center gap-2 text-xs font-bold tracking-wide';
-
-            let groupField = 'WADMKC';
-            let nextZoomTarget = 15;
-
-            if (zoom >= 12 && zoom <= 13) {
-                groupField = 'WADMKC';
-                modeTitle.innerText = 'Klaster: KECAMATAN';
-                nextZoomTarget = 15;
-            } else if (zoom >= 10 && zoom <= 11) {
-                groupField = 'WADMKK';
-                modeTitle.innerText = 'Klaster: KAB/KOTA';
-                nextZoomTarget = 12;
-            } else {
-                groupField = 'WADMPR';
-                modeTitle.innerText = 'Klaster: PROVINSI';
-                nextZoomTarget = 10;
-            }
-
-            renderSegmentedRegionalClusters(groupField, nextZoomTarget);
-        }
-
-        function renderSegmentedRegionalClusters(groupField, nextZoomTarget) {
-            const clustersMap = new Map();
-
-            filteredPetugasFeatures.forEach(feat => {
-                const p = feat.properties || {};
-                const regionName = p[groupField] || 'Tidak Diketahui';
-                const [lng, lat] = feat._centroid;
-                const weight = clusterMetricMode === 'petugas' ? Number(p['Jumlah Pet'] || 0) : 1;
-
-                if (!clustersMap.has(regionName)) {
-                    clustersMap.set(regionName, {
-                        name: regionName,
-                        totalPos: 0,
-                        totalPetugas: 0,
-                        serviceCounts: {},
-                        coords: []
-                    });
-                }
-
-                const group = clustersMap.get(regionName);
-                group.totalPos += 1;
-                group.totalPetugas += Number(p['Jumlah Pet'] || 0);
-                group.coords.push([lng, lat]);
-
-                // Hitung proporsi per Jenis Layanan (yang sudah di-split dari koma)
-                const services = feat._layananList || ['Lainnya'];
-                services.forEach(srv => {
-                    const style = getServiceStyle(srv);
-                    const key = style.label;
-                    group.serviceCounts[key] = (group.serviceCounts[key] || 0) + (weight > 0 ? weight : 1);
-                });
-            });
-
-            clustersMap.forEach((cluster) => {
-                const pts = turf.featureCollection(cluster.coords.map(c => turf.point(c)));
-                const centerCoord = turf.center(pts).geometry.coordinates; // [lng, lat]
-                const displayNumber = clusterMetricMode === 'petugas' ? cluster.totalPetugas : cluster.totalPos;
-
-                // Susun segmen warna horizontal berdasarkan proporsi Jenis Layanan
-                const entries = Object.entries(cluster.serviceCounts).sort((a, b) => b[1] - a[1]);
-                const totalWeight = entries.reduce((acc, [, val]) => acc + val, 0) || 1;
-
-                const segmentsHtml = entries.map(([srvName, val]) => {
-                    const pct = (val / totalWeight) * 100;
-                    const colorHex = getServiceStyle(srvName).hex;
-                    return `<div style="width: ${pct.toFixed(2)}%; background-color: ${colorHex};" class="h-full"></div>`;
-                }).join('');
-
-                // Kapsul membulat (border-radius: 9999px) dengan border putih & shadow persis gambar 2
-                const iconHtml = `
-                    <div class="region-cluster-bubble relative inline-flex items-center justify-center min-w-[66px] h-[32px] px-3 rounded-full border-[2.5px] border-white shadow-[0_3px_10px_rgba(15,23,42,0.35)] overflow-hidden cursor-pointer select-none"
-                         title="${cluster.name}: ${cluster.totalPos} Pos • ${cluster.totalPetugas} Petugas">
-                        <div class="absolute inset-0 flex w-full h-full">
-                            ${segmentsHtml}
-                        </div>
-                        <span class="relative z-10 text-white font-extrabold text-xs tracking-tight drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]">
-                            ${displayNumber.toLocaleString('id-ID')}
-                        </span>
-                    </div>
-                `;
-
-                const divIcon = L.divIcon({
-                    html: iconHtml,
-                    className: 'region-cluster-wrapper',
-                    iconSize: [72, 34],
-                    iconAnchor: [36, 17]
-                });
-
-                const clusterMarker = L.marker([centerCoord[1], centerCoord[0]], { icon: divIcon });
-
-                clusterMarker.on('click', () => {
-                    const regionBounds = L.latLngBounds(cluster.coords.map(c => [c[1], c[0]]));
-                    map.flyToBounds(regionBounds, {
-                        padding: [60, 60],
-                        maxZoom: nextZoomTarget,
-                        duration: 0.8
-                    });
-                });
-
-                layerRegionalClusters.addLayer(clusterMarker);
-            });
-        }
-
-        function renderDetailedPolygonsAndPoints() {
-            const showLahan = document.getElementById('toggle-layer-lahan').checked;
-            const showPetugas = document.getElementById('toggle-layer-petugas').checked;
-
-            // 1. Render Polygons dari INIFIX_Aman.geojson diwarnai berdasarkan Jenis Layanan utama
-            if (showLahan) {
-                filteredLahanFeatures.forEach(feat => {
-                    const p = feat.properties || {};
-                    const primaryService = (feat._layananList && feat._layananList[0]) || 'Lainnya';
-                    const colorHex = getServiceStyle(primaryService).hex;
-
-                    const polyLayer = L.geoJSON(feat, {
-                        style: {
-                            color: colorHex,
-                            weight: 2.2,
-                            opacity: 0.9,
-                            fillColor: colorHex,
-                            fillOpacity: 0.25
-                        }
-                    });
-
-                    polyLayer.bindPopup(buildFeaturePopupHTML(p, 'Poligon Lahan'));
-
-                    polyLayer.on('click', () => {
-                        showObjectInInspector(p, 'Poligon Lahan (INIFIX_Aman)');
-                    });
-
-                    layerLahanPolygons.addLayer(polyLayer);
-                });
-            }
-
-            // 2. Render Points dari Petugas_JSON.geojson diwarnai berdasarkan Jenis Layanan
-            if (showPetugas) {
-                filteredPetugasFeatures.forEach(feat => {
-                    const p = feat.properties || {};
-                    const [lng, lat] = feat._centroid;
-                    const primaryService = (feat._layananList && feat._layananList[0]) || 'Lainnya';
-                    const colorHex = getServiceStyle(primaryService).hex;
-
-                    const marker = L.circleMarker([lat, lng], {
-                        radius: 7,
-                        fillColor: colorHex,
-                        color: '#ffffff',
-                        weight: 2.2,
-                        opacity: 1,
-                        fillOpacity: 0.95
-                    });
-
-                    marker.bindPopup(buildFeaturePopupHTML(p, 'Pos Petugas'));
-
-                    marker.on('click', () => {
-                        showObjectInInspector(p, 'Pos Petugas (Petugas_JSON)');
-                    });
-
-                    layerPetugasPoints.addLayer(marker);
-                });
-            }
-        }
-
-        // =========================================================================
-        // 8. BATAS WILAYAH (HANYA HIGHLIGHT GARIS BATAS, TANPA TOOLTIP HOVER)
-        // =========================================================================
-        function renderWilayahBoundaries() {
-            layerWilayahGroup.clearLayers();
-            if (!rawWilayahData) return;
-
-            const defaultStyle = {
-                color: '#1e40af',
-                weight: 1.4,
-                opacity: 0.75,
-                fillColor: '#1e40af',
-                fillOpacity: 0.0
-            };
-
-            const highlightStyle = {
-                color: '#0f172a',
-                weight: 3.2,
+        return turf.dissolve(validPolys, { propertyName: propName });
+      } catch (err) {
+        console.warn(`Gagal ${propName}, kamu gagal:`, err);
+        return geojson;
+      }
+    }
+
+    function prepareBoundaryLevels() {
+      state.dissolvedWilayahCache.kecamatan = state.rawWilayah;
+      state.dissolvedWilayahCache.kabkota = dissolveByProperty(state.rawWilayah, 'WADMKK');
+      state.dissolvedWilayahCache.provinsi = dissolveByProperty(state.rawWilayah, 'WADMPR');
+    }
+
+    function renderWilayahBoundaries(force = false) {
+      if (!state.rawWilayah) return;
+
+      const zoom = map.getZoom();
+      const mode = getZoomModeInfo(zoom);
+      const boundaryLevel = mode.key === 'detail' ? 'kecamatan' : mode.key;
+
+      if (!force && state.currentBoundaryLevel === boundaryLevel && wilayahLayerGroup.getLayers().length > 0) {
+        return;
+      }
+      state.currentBoundaryLevel = boundaryLevel;
+      wilayahLayerGroup.clearLayers();
+
+      const targetGeoJSON = state.dissolvedWilayahCache[boundaryLevel] || state.rawWilayah;
+
+      // Ketebalan garis menyesuaikan jenjang wilayah agar jelas terbaca
+      const baseWeight = boundaryLevel === 'provinsi' ? 2.4 : (boundaryLevel === 'kabkota' ? 1.8 : 1.2);
+      const hoverWeight = boundaryLevel === 'provinsi' ? 4.0 : (boundaryLevel === 'kabkota' ? 3.2 : 2.6);
+
+      L.geoJSON(targetGeoJSON, {
+        style: {
+          color: '#1B3668',
+          weight: baseWeight,
+          opacity: 0.72,
+          fillColor: '#1B3668',
+          fillOpacity: 0.015
+        },
+        onEachFeature: (feature, layer) => {
+          // Hover murni menyorot garis batas wilayah tanpa kotak tooltip maupun outline fokus
+          layer.on({
+            mouseover: (e) => {
+              const target = e.target;
+              target.setStyle({
+                color: '#00529C',
+                weight: hoverWeight,
                 opacity: 1,
-                fillColor: '#2563eb',
-                fillOpacity: 0.05
-            };
+                fillOpacity: 0.04
+              });
+              if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+                target.bringToFront();
+              }
+            },
+            mouseout: (e) => {
+              e.target.setStyle({
+                color: '#1B3668',
+                weight: baseWeight,
+                opacity: 0.72,
+                fillOpacity: 0.015
+              });
+            }
+          });
+        }
+      }).addTo(wilayahLayerGroup);
+    }
 
-            const geoLayer = L.geoJSON(rawWilayahData, {
-                style: defaultStyle,
-                onEachFeature: (feature, layer) => {
-                    // Tidak ada bindTooltip agar tidak muncul kotak saat hover wilayah
-                    layer.on({
-                        mouseover: (e) => {
-                            const target = e.target;
-                            target.setStyle(highlightStyle);
-                            if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
-                                target.bringToFront();
-                            }
-                            // Pastikan layer titik/klaster tetap berada di atas garis batas
-                            layerLahanPolygons.bringToFront();
-                            layerPetugasPoints.bringToFront();
-                        },
-                        mouseout: (e) => {
-                            geoLayer.resetStyle(e.target);
-                        }
-                    });
-                }
-            });
+    // =========================================================================
+    // 7. FILTER & PENCARIAN
+    // =========================================================================
+    function populateFilterDropdowns() {
+      const provSet = new Set();
+      const kabSet = new Set();
+      const kecSet = new Set();
+      const layananSet = new Set();
+      const bentukSet = new Set();
 
-            layerWilayahGroup.addLayer(geoLayer);
+      (state.rawPetugas.features || []).forEach(f => {
+        const p = f.properties || {};
+        if (p.WADMPR && p.WADMPR !== 'Tidak Diketahui') provSet.add(p.WADMPR);
+        if (p.WADMKK && p.WADMKK !== 'Tidak Diketahui') kabSet.add(p.WADMKK);
+        if (p.WADMKC && p.WADMKC !== 'Tidak Diketahui') kecSet.add(p.WADMKC);
+        if (p.Bentuk) bentukSet.add(p.Bentuk);
+        parseServices(p.Layanan).forEach(srv => layananSet.add(srv));
+      });
+
+      fillSelect('filter-provinsi', Array.from(provSet).sort(), 'Semua');
+      fillSelect('filter-kabkota', Array.from(kabSet).sort(), 'Semua');
+      fillSelect('filter-kecamatan', Array.from(kecSet).sort(), 'Semua');
+      fillSelect('filter-layanan', Array.from(layananSet).sort(), 'Semua Layanan');
+      fillSelect('filter-bentuk', Array.from(bentukSet).sort(), 'Semua Bentuk');
+    }
+
+    function fillSelect(id, items, defaultLabel) {
+      const sel = document.getElementById(id);
+      const currentVal = sel.value;
+      sel.innerHTML = `<option value="">${defaultLabel}</option>`;
+      items.forEach(item => {
+        const opt = document.createElement('option');
+        opt.value = item;
+        opt.textContent = item;
+        sel.appendChild(opt);
+      });
+      if (items.includes(currentVal)) sel.value = currentVal;
+    }
+
+    function updateCascadingRegionDropdowns() {
+      const prov = state.filters.provinsi;
+      const kab = state.filters.kabkota;
+
+      const kabSet = new Set();
+      const kecSet = new Set();
+
+      (state.rawPetugas.features || []).forEach(f => {
+        const p = f.properties || {};
+        if (!prov || p.WADMPR === prov) {
+          if (p.WADMKK && p.WADMKK !== 'Tidak Diketahui') kabSet.add(p.WADMKK);
+          if ((!kab || p.WADMKK === kab) && p.WADMKC && p.WADMKC !== 'Tidak Diketahui') {
+            kecSet.add(p.WADMKC);
+          }
+        }
+      });
+
+      fillSelect('filter-kabkota', Array.from(kabSet).sort(), 'Semua');
+      fillSelect('filter-kecamatan', Array.from(kecSet).sort(), 'Semua');
+    }
+
+    function applyFiltersAndRender() {
+      const { search, provinsi, kabkota, kecamatan, layanan, bentuk } = state.filters;
+      const q = search.trim().toLowerCase();
+
+      state.filteredPetugas = (state.rawPetugas.features || []).filter(f => {
+        const p = f.properties || {};
+        if (provinsi && p.WADMPR !== provinsi) return false;
+        if (kabkota && p.WADMKK !== kabkota) return false;
+        if (kecamatan && p.WADMKC !== kecamatan) return false;
+        if (bentuk && p.Bentuk !== bentuk) return false;
+
+        const services = parseServices(p.Layanan);
+        if (layanan && !services.includes(layanan)) return false;
+
+        if (q) {
+          const haystack = [
+            p.ID_Petugas,
+            p.ID_Lahan,
+            p['Nama Titik'],
+            p.NamaLahan,
+            p.Rute,
+            p.Layanan,
+            p.WADMKC,
+            p.WADMKK,
+            p.WADMPR
+          ].join(' ').toLowerCase();
+          if (!haystack.includes(q)) return false;
+        }
+        return true;
+      });
+
+      const activeLahanIds = new Set(state.filteredPetugas.map(f => String(f.properties.ID_Lahan || '').trim()));
+      state.filteredLahan = (state.rawLahan.features || []).filter(f => {
+        const p = f.properties || {};
+        if (activeLahanIds.has(String(p.ID_Lahan || '').trim())) return true;
+        if (provinsi && p.WADMPR !== provinsi) return false;
+        if (kabkota && p.WADMKK !== kabkota) return false;
+        if (kecamatan && p.WADMKC !== kecamatan) return false;
+        if (bentuk && p.Bentuk !== bentuk) return false;
+        const services = parseServices(p.Layanan);
+        if (layanan && !services.includes(layanan)) return false;
+        if (q) {
+          const haystack = [p.Nama, p.ID_Lahan, p['Nama Titik'], p.Rute, p.Layanan, p.WADMKC, p.WADMKK].join(' ').toLowerCase();
+          if (!haystack.includes(q)) return false;
+        }
+        return state.filteredPetugas.length === 0 ? false : true;
+      });
+
+      renderMapFeatures();
+      updateDashboardStatistics();
+      renderSidebarList();
+    }
+
+    // =========================================================================
+    // 8. RENDER PETA BERDASARKAN SKALA ZOOM (PIL KLASTER COUNT LAHAN VS DETAIL)
+    // =========================================================================
+    function buildSegmentedGradient(serviceCounts) {
+      const entries = Object.entries(serviceCounts).filter(([, v]) => v > 0);
+      if (entries.length === 0) return '#1B3668';
+      if (entries.length === 1) return getServiceColor(entries[0][0]);
+
+      entries.sort((a, b) => b[1] - a[1]);
+      const total = entries.reduce((acc, [, v]) => acc + v, 0);
+      let cumulative = 0;
+      const stops = [];
+
+      entries.forEach(([srv, count]) => {
+        const color = getServiceColor(srv);
+        const startPct = (cumulative / total) * 100;
+        cumulative += count;
+        const endPct = (cumulative / total) * 100;
+        stops.push(`${color} ${startPct.toFixed(1)}% ${endPct.toFixed(1)}%`);
+      });
+
+      return `linear-gradient(90deg, ${stops.join(', ')})`;
+    }
+
+    function renderMapFeatures() {
+      lahanLayerGroup.clearLayers();
+      petugasLayerGroup.clearLayers();
+
+      const zoom = map.getZoom();
+      const mode = getZoomModeInfo(zoom);
+
+      // Perbarui lencana status klaster & batas wilayah
+      document.getElementById('zoom-mode-label').textContent = `Klaster: ${mode.label}`;
+      document.getElementById('zoom-scale-label').textContent = `Zoom ${zoom}`;
+      renderWilayahBoundaries(false);
+
+      const showLahan = document.getElementById('toggle-lahan').checked;
+      const showPetugas = document.getElementById('toggle-petugas').checked;
+
+      // MODE DETAIL SKALA < 1:50.000 (ZOOM >= 14)
+      if (mode.key === 'detail') {
+        if (showLahan) {
+          L.geoJSON({ type: 'FeatureCollection', features: state.filteredLahan }, {
+            style: (feature) => {
+              const services = parseServices(feature.properties.Layanan);
+              const mainColor = getServiceColor(services[0]);
+              return {
+                color: mainColor,
+                weight: 2.5,
+                fillColor: mainColor,
+                fillOpacity: 0.24
+              };
+            },
+            onEachFeature: (feature, layer) => {
+              const p = feature.properties || {};
+              layer.bindPopup(buildFeaturePopupHTML(p, 'Poligon Lahan'));
+              layer.on('click', () => showObjectDetail(p, 'Poligon Lahan'));
+            }
+          }).addTo(lahanLayerGroup);
         }
 
-        // =========================================================================
-        // 9. POPUPS & INSPECTOR DETAIL CARD (TANPA KOLOM KELAYAKAN, LAYANAN LIST)
-        // =========================================================================
-        function buildFeaturePopupHTML(p, badgeTitle) {
+        if (showPetugas) {
+          state.filteredPetugas.forEach(feature => {
+            const p = feature.properties || {};
+            const coords = feature.geometry && feature.geometry.coordinates;
+            if (!coords || coords.length < 2) return;
+
+            const services = parseServices(p.Layanan);
+            const mainColor = getServiceColor(services[0]);
+
+            const marker = L.circleMarker([coords[1], coords[0]], {
+              radius: 8,
+              fillColor: mainColor,
+              color: '#ffffff',
+              weight: 2.5,
+              opacity: 1,
+              fillOpacity: 0.95
+            });
+
+            marker.bindPopup(buildFeaturePopupHTML(p, 'Pos Petugas'));
+            marker.on('click', () => showObjectDetail(p, 'Pos Petugas'));
+            marker.addTo(petugasLayerGroup);
+          });
+        }
+        return;
+      }
+
+      // MODE KLASTER BERJENJANG (PROVINSI / KABUPATEN-KOTA / KECAMATAN)
+      // Angka di dalam pil klaster menggunakan jumlah count lahan (ID_Lahan unik / jumlah fitur lahan)
+      if (!showPetugas && !showLahan) return;
+
+      const groups = {};
+      state.filteredLahan.forEach(feature => {
+        const p = feature.properties || {};
+        let centroidCoords = null;
+        if (feature.geometry && typeof turf !== 'undefined') {
+          try {
+            const c = turf.centroid(feature);
+            centroidCoords = c.geometry.coordinates;
+          } catch (e) {}
+        }
+        if (!centroidCoords) return;
+
+        const regionKey = (p[mode.prop] && p[mode.prop] !== 'Tidak Diketahui') ? p[mode.prop] : 'Wilayah Lainnya';
+        if (!groups[regionKey]) {
+          groups[regionKey] = {
+            name: regionKey,
+            sumLat: 0,
+            sumLng: 0,
+            pointCount: 0,
+            lahanCount: 0,
+            serviceCounts: {}
+          };
+        }
+
+        const g = groups[regionKey];
+        g.sumLat += centroidCoords[1];
+        g.sumLng += centroidCoords[0];
+        g.pointCount += 1;
+        g.lahanCount += 1;
+
+        parseServices(p.Layanan).forEach(srv => {
+          g.serviceCounts[srv] = (g.serviceCounts[srv] || 0) + 1;
+        });
+      });
+
+      Object.values(groups).forEach(group => {
+        if (group.pointCount === 0) return;
+        const centerLat = group.sumLat / group.pointCount;
+        const centerLng = group.sumLng / group.pointCount;
+        const bgGradient = buildSegmentedGradient(group.serviceCounts);
+
+        const icon = L.divIcon({
+          className: '',
+          html: `<div class="service-pill-marker" style="background: ${bgGradient};" title="${group.name}: ${group.lahanCount} Lahan">${group.lahanCount.toLocaleString('id-ID')}</div>`,
+          iconSize: [76, 30],
+          iconAnchor: [38, 15]
+        });
+
+        const marker = L.marker([centerLat, centerLng], { icon });
+        marker.on('click', () => {
+          const nextZoom = zoom <= 9 ? 11 : (zoom <= 11 ? 13 : 15);
+          map.flyTo([centerLat, centerLng], nextZoom, { duration: 0.65 });
+        });
+        marker.addTo(petugasLayerGroup);
+      });
+    }
+
+    // =========================================================================
+    // 9. POPUP & DETAIL INSPEKTOR (JENIS LAYANAN SEBAGAI LIST, TANPA KELAYAKAN)
+    // =========================================================================
+    function buildServiceListHTML(layananStr) {
+      const services = parseServices(layananStr);
+      return `
+        <ul class="space-y-1 mt-1">
+          ${services.map(srv => {
+            const color = getServiceColor(srv);
             return `
-                <div class="font-sans text-slate-800">
-                    <div class="px-3.5 py-2.5 bg-slate-900 text-white">
-                        <div class="text-[9px] uppercase tracking-wider text-emerald-400 font-bold">${badgeTitle}</div>
-                        <div class="font-bold text-xs leading-snug mt-0.5">${p['Nama Titik'] || p.Nama || '-'}</div>
-                    </div>
-                    <div class="p-3 space-y-2 text-[11px]">
-                        <div class="grid grid-cols-2 gap-1.5 bg-slate-50 p-2 rounded-lg border border-slate-100">
-                            <div><span class="text-slate-400 block text-[9px]">ID Petugas</span><strong>${p.ID_Petugas || '-'}</strong></div>
-                            <div><span class="text-slate-400 block text-[9px]">ID Lahan</span><strong>${p.ID_Lahan || '-'}</strong></div>
-                            <div><span class="text-slate-400 block text-[9px]">Bentuk</span><strong>${p.Bentuk || '-'}</strong></div>
-                            <div><span class="text-slate-400 block text-[9px]">Personel / Rute</span><strong>${p['Jumlah Pet'] || 0} Pet • ${p['Jumlah Rut'] || 0} Rut</strong></div>
-                        </div>
-                        ${p.WADMKC ? `<div><span class="text-slate-400">Wilayah:</span> <span class="font-medium">Kec. ${p.WADMKC}, ${p.WADMKK || ''}</span></div>` : ''}
-                        <div>
-                            <span class="text-slate-400 block text-[10px] font-semibold">Jenis Layanan:</span>
-                            ${buildLayananVerticalListHTML(p.Layanan)}
-                        </div>
-                        <div>
-                            <span class="text-slate-400">Rute:</span> <span class="font-semibold text-blue-700">${p.Rute || '-'}</span>
-                        </div>
-                    </div>
-                </div>
+              <li class="flex items-center gap-2 text-[11px] font-semibold text-slate-700 bg-slate-50 px-2 py-1 rounded border border-slate-200/80">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" style="background:${color};"></span>
+                <span>${srv}</span>
+              </li>
             `;
-        }
+          }).join('')}
+        </ul>
+      `;
+    }
 
-        function showObjectInInspector(p, sourceLabel) {
-            switchSidebarTab('detail');
-            const container = document.getElementById('detail-inspector-container');
+    function buildFeaturePopupHTML(p, typeLabel) {
+      const title = p['Nama Titik'] || p.Nama || p.ID_Petugas || p.ID_Lahan || 'Objek Tanpa Nama';
+      const idBadge = typeLabel === 'Pos Petugas' ? (p.ID_Petugas || '-') : (p.ID_Lahan || '-');
+      const luasVal = Number(p.Luas || p.LuasLahan || 0);
 
-            container.className = 'p-4 bg-white rounded-xl border border-slate-200 shadow-sm text-left space-y-3';
-            container.innerHTML = `
-                <div class="pb-2.5 border-b border-slate-100">
-                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-600">${sourceLabel}</span>
-                    <h3 class="text-sm font-extrabold text-slate-800 mt-0.5">${p['Nama Titik'] || p.Nama || 'Tanpa Nama'}</h3>
-                    ${p.Nama ? `<p class="text-[11px] text-slate-500">Lahan Induk: <strong>${p.Nama}</strong></p>` : ''}
-                </div>
+      return `
+        <div class="font-sans">
+          <div class="bg-[#1B3668] text-white px-3.5 py-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider text-blue-200">${typeLabel}</span>
+              <span class="text-[10px] font-mono bg-white/15 px-1.5 py-0.5 rounded text-white">${idBadge}</span>
+            </div>
+            <div class="text-sm font-bold leading-snug mt-0.5">${title}</div>
+          </div>
+          <div class="p-3 space-y-2.5 text-xs bg-white">
+            <div>
+              <div class="text-[10px] font-bold text-slate-400 uppercase">Jenis Layanan</div>
+              ${buildServiceListHTML(p.Layanan)}
+            </div>
+            <div class="grid grid-cols-2 gap-2 pt-1 border-t border-slate-100">
+              <div>
+                <div class="text-[10px] text-slate-400">Bentuk</div>
+                <div class="font-semibold text-slate-800">${p.Bentuk || '-'}</div>
+              </div>
+              <div>
+                <div class="text-[10px] text-slate-400">Jumlah Petugas</div>
+                <div class="font-bold text-[#1B3668]">${Number(p['Jumlah Pet'] || 0)} Personel</div>
+              </div>
+              <div>
+                <div class="text-[10px] text-slate-400">Jumlah Rute</div>
+                <div class="font-semibold text-slate-800">${Number(p['Jumlah Rut'] || 0)} Rute</div>
+              </div>
+              <div>
+                <div class="text-[10px] text-slate-400">Luas Lahan</div>
+                <div class="font-semibold text-slate-800">${luasVal > 0 ? luasVal.toLocaleString('id-ID', { maximumFractionDigits: 1 }) + ' m²' : '-'}</div>
+              </div>
+            </div>
+            <div class="pt-1 border-t border-slate-100 text-[11px] text-slate-600">
+              <span class="font-semibold text-slate-700">Rute:</span> ${p.Rute || '-'}
+            </div>
+            <div class="text-[10px] text-slate-500">
+              ${[p.WADMKC, p.WADMKK, p.WADMPR].filter(v => v && v !== 'Tidak Diketahui').join(', ')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
-                <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                        <span class="text-[10px] text-slate-400 block">ID Petugas</span>
-                        <span class="font-bold text-slate-800">${p.ID_Petugas || '-'}</span>
-                    </div>
-                    <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-100">
-                        <span class="text-[10px] text-slate-400 block">ID Lahan</span>
-                        <span class="font-bold text-slate-800">${p.ID_Lahan || '-'}</span>
-                    </div>
-                    <div class="p-2.5 rounded-lg bg-blue-50/60 border border-blue-100">
-                        <span class="text-[10px] text-blue-600 block">Jumlah Petugas</span>
-                        <span class="font-extrabold text-blue-800">${p['Jumlah Pet'] ?? 0} Orang</span>
-                    </div>
-                    <div class="p-2.5 rounded-lg bg-purple-50/60 border border-purple-100">
-                        <span class="text-[10px] text-purple-600 block">Jumlah Rute</span>
-                        <span class="font-extrabold text-purple-800">${p['Jumlah Rut'] ?? 0} Rute</span>
-                    </div>
-                </div>
+    function showObjectDetail(p, typeLabel) {
+      switchSidebarTab('detail');
+      document.getElementById('detail-empty').classList.add('hidden');
+      const container = document.getElementById('detail-content');
+      container.classList.remove('hidden');
 
-                <div class="py-1">
-                    <span class="text-xs font-bold text-slate-700 block mb-1">Jenis Layanan</span>
-                    ${buildLayananVerticalListHTML(p.Layanan)}
-                </div>
+      const title = p['Nama Titik'] || p.Nama || p.ID_Petugas || p.ID_Lahan || '-';
+      const luasVal = Number(p.Luas || p.LuasLahan || 0);
 
-                <div class="space-y-1.5 text-xs pt-1">
-                    <div class="flex justify-between py-1 border-b border-slate-100">
-                        <span class="text-slate-500">Bentuk Prasarana</span>
-                        <span class="font-semibold text-slate-800">${p.Bentuk || '-'}</span>
-                    </div>
-                    ${p.Luas ? `
-                    <div class="flex justify-between py-1 border-b border-slate-100">
-                        <span class="text-slate-500">Luas Area</span>
-                        <span class="font-semibold text-slate-800">${Number(p.Luas).toLocaleString('id-ID')} m²</span>
-                    </div>` : ''}
-                    <div class="flex justify-between py-1 border-b border-slate-100">
-                        <span class="text-slate-500">Kecamatan (WADMKC)</span>
-                        <span class="font-semibold text-slate-800">${p.WADMKC || '-'}</span>
-                    </div>
-                    <div class="flex justify-between py-1 border-b border-slate-100">
-                        <span class="text-slate-500">Kabupaten / Kota (WADMKK)</span>
-                        <span class="font-semibold text-slate-800">${p.WADMKK || '-'}</span>
-                    </div>
-                    <div class="flex justify-between py-1 border-b border-slate-100">
-                        <span class="text-slate-500">Provinsi (WADMPR)</span>
-                        <span class="font-semibold text-slate-800">${p.WADMPR || '-'}</span>
-                    </div>
-                    <div class="py-1">
-                        <span class="text-slate-500 block mb-0.5">Daftar Rute Melintas</span>
-                        <div class="p-2 rounded-lg bg-blue-50/70 text-blue-900 font-medium text-[11px] border border-blue-100">
-                            ${p.Rute || '-'}
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
+      container.innerHTML = `
+        <div class="bg-[#1B3668] text-white rounded-xl p-3.5 shadow-sm">
+          <div class="flex items-center justify-between text-[10px] uppercase tracking-wider text-blue-200 font-bold">
+            <span>${typeLabel}</span>
+            <span>ID Lahan: ${p.ID_Lahan || '-'}</span>
+          </div>
+          <h2 class="text-base font-extrabold mt-1 leading-snug">${title}</h2>
+          <p class="text-[11px] text-blue-100 mt-1">${p.NamaLahan && p.NamaLahan !== title ? p.NamaLahan : (p.Bentuk || '')}</p>
+        </div>
 
-        // =========================================================================
-        // 10. STATISTICAL DASHBOARD & CHARTS (ID_Petugas vs Jumlah Pet)
-        // =========================================================================
-        function updateDashboardStatistics() {
-            const totalPos = filteredPetugasFeatures.length;
-            let totalPetugas = 0;
-            let totalRute = 0;
+        <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
+          <div class="text-[10px] font-bold text-[#1B3668] uppercase tracking-wider mb-1">Daftar Jenis Layanan</div>
+          ${buildServiceListHTML(p.Layanan)}
+        </div>
 
-            const kecSet = new Set();
-            const kabSet = new Set();
-            const layananCounts = {};
-            const kabAggregation = {};
+        <div class="grid grid-cols-2 gap-2">
+          <div class="bg-white border border-slate-200 rounded-xl p-2.5">
+            <div class="text-[10px] text-slate-400 font-semibold">ID Petugas</div>
+            <div class="text-xs font-bold text-slate-800 mt-0.5">${p.ID_Petugas || '-'}</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-xl p-2.5">
+            <div class="text-[10px] text-slate-400 font-semibold">Bentuk Titik Ujung</div>
+            <div class="text-xs font-bold text-slate-800 mt-0.5">${p.Bentuk || '-'}</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-xl p-2.5">
+            <div class="text-[10px] text-slate-400 font-semibold">Jumlah Petugas</div>
+            <div class="text-sm font-extrabold text-[#1B3668] mt-0.5">${Number(p['Jumlah Pet'] || 0)} Orang</div>
+          </div>
+          <div class="bg-white border border-slate-200 rounded-xl p-2.5">
+            <div class="text-[10px] text-slate-400 font-semibold">Luas Lahan</div>
+            <div class="text-xs font-bold text-slate-800 mt-0.5">${luasVal > 0 ? luasVal.toLocaleString('id-ID', { maximumFractionDigits: 2 }) + ' m²' : '-'}</div>
+          </div>
+        </div>
 
-            filteredPetugasFeatures.forEach(f => {
-                const p = f.properties || {};
-                const pet = Number(p['Jumlah Pet'] || 0);
-                const rut = Number(p['Jumlah Rut'] || 0);
+        <div class="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
+          <div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Rute (${Number(p['Jumlah Rut'] || 0)} Rute)</div>
+            <div class="text-xs font-semibold text-slate-800 mt-1 leading-relaxed">${p.Rute || '-'}</div>
+          </div>
+          <div class="border-t border-slate-100 pt-2">
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Wilayah</div>
+            <div class="text-xs text-slate-700 mt-1 space-y-0.5">
+              <div><span class="text-slate-400">Kelurahan:</span> <span class="font-semibold">${p.NAMOBJ || '-'}</span></div>
+              <div><span class="text-slate-400">Kecamatan:</span> <span class="font-semibold">${p.WADMKC || '-'}</span></div>
+              <div><span class="text-slate-400">Kab/Kota:</span> <span class="font-semibold">${p.WADMKK || '-'}</span></div>
+              <div><span class="text-slate-400">Provinsi:</span> <span class="font-semibold">${p.WADMPR || '-'}</span></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
-                totalPetugas += pet;
-                totalRute += rut;
+    // =========================================================================
+    // 10. STATISTIK DASHBOARD & GRAFIK (BERBASIS ID_PETUGAS & JUMLAH PETUGAS)
+    // =========================================================================
+    function updateDashboardStatistics() {
+      const totalPos = state.filteredPetugas.length;
+      const totalPetugas = state.filteredPetugas.reduce((sum, f) => sum + (Number(f.properties['Jumlah Pet']) || 0), 0);
+      const totalRute = state.filteredPetugas.reduce((sum, f) => sum + (Number(f.properties['Jumlah Rut']) || 0), 0);
+      const totalLuas = state.filteredLahan.reduce((sum, f) => sum + (Number(f.properties.Luas) || 0), 0);
 
-                if (p.WADMKC && p.WADMKC !== 'Tidak Diketahui') kecSet.add(p.WADMKC);
-                if (p.WADMKK && p.WADMKK !== 'Tidak Diketahui') {
-                    kabSet.add(p.WADMKK);
-                    if (!kabAggregation[p.WADMKK]) {
-                        kabAggregation[p.WADMKK] = { pos: 0, petugas: 0 };
-                    }
-                    kabAggregation[p.WADMKK].pos += 1;
-                    kabAggregation[p.WADMKK].petugas += pet;
-                }
+      document.getElementById('tab-list-count').textContent = totalPos.toLocaleString('id-ID');
+      document.getElementById('kpi-pos').textContent = totalPos.toLocaleString('id-ID');
+      document.getElementById('kpi-petugas').textContent = totalPetugas.toLocaleString('id-ID');
+      document.getElementById('kpi-avg-petugas').textContent = `Rata-rata ${totalPos > 0 ? (totalPetugas / totalPos).toFixed(1) : '0'} / pos`;
+      document.getElementById('kpi-luas').textContent = `${Math.round(totalLuas).toLocaleString('id-ID')} m²`;
+      document.getElementById('kpi-luas-ha').textContent = `${(totalLuas / 10000).toFixed(2)} Hektar`;
+      document.getElementById('kpi-rute').textContent = totalRute.toLocaleString('id-ID');
 
-                (f._layananList || ['Lainnya']).forEach(srv => {
-                    const label = getServiceStyle(srv).label;
-                    layananCounts[label] = (layananCounts[label] || 0) + 1;
-                });
-            });
+      // Agregasi Jenis Layanan (dari setiap titik ID_Petugas)
+      const serviceStats = {};
+      state.filteredPetugas.forEach(f => {
+        const p = f.properties || {};
+        const pet = Number(p['Jumlah Pet']) || 0;
+        parseServices(p.Layanan).forEach(srv => {
+          if (!serviceStats[srv]) serviceStats[srv] = { posCount: 0, petugasCount: 0 };
+          serviceStats[srv].posCount += 1;
+          serviceStats[srv].petugasCount += pet;
+        });
+      });
 
-            // Hitung luas lahan terkait dari filteredLahanFeatures
-            let totalLuas = 0;
-            filteredLahanFeatures.forEach(lf => {
-                totalLuas += Number(lf.properties?.Luas || 0);
-            });
+      const sortedServices = Object.entries(serviceStats).sort((a, b) => b[1].posCount - a[1].posCount);
+      const legendContainer = document.getElementById('service-legend-list');
+      legendContainer.innerHTML = sortedServices.map(([srv, stat]) => {
+        const color = getServiceColor(srv);
+        const isSelected = state.filters.layanan === srv;
+        return `
+          <button onclick="toggleServiceFilter('${srv.replace(/'/g, "\\'")}')"
+            class="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-left text-xs transition border ${isSelected ? 'bg-blue-50 border-[#1B3668] font-bold' : 'bg-slate-50/70 hover:bg-slate-100 border-transparent'}">
+            <span class="flex items-center gap-2 truncate">
+              <span class="w-3 h-3 rounded-full shrink-0" style="background:${color};"></span>
+              <span class="truncate text-slate-800">${srv}</span>
+            </span>
+            <span class="text-[11px] font-bold text-[#1B3668] shrink-0 ml-2">${stat.posCount} Pos <span class="text-slate-400 font-normal">(${stat.petugasCount} Pet)</span></span>
+          </button>
+        `;
+      }).join('');
 
-            const avgPetugas = totalPos > 0 ? (totalPetugas / totalPos).toFixed(1) : '0.0';
+      // Agregasi Sebaran Wilayah: ID_Petugas vs Jumlah Petugas per Kab/Kota
+      const regionStats = {};
+      state.filteredPetugas.forEach(f => {
+        const p = f.properties || {};
+        const key = (p.WADMKK && p.WADMKK !== 'Tidak Diketahui') ? p.WADMKK.replace('Kota Adm. ', '') : 'Lainnya';
+        if (!regionStats[key]) regionStats[key] = { pos: 0, petugas: 0 };
+        regionStats[key].pos += 1;
+        regionStats[key].petugas += (Number(p['Jumlah Pet']) || 0);
+      });
 
-            // Update KPI Cards
-            document.getElementById('kpi-total-pos').innerText = totalPos.toLocaleString('id-ID');
-            document.getElementById('kpi-sub-wilayah').innerText = `${kecSet.size} Kecamatan • ${kabSet.size} Kab/Kota`;
+      const topRegions = Object.entries(regionStats)
+        .sort((a, b) => b[1].petugas - a[1].petugas)
+        .slice(0, 6);
 
-            document.getElementById('kpi-total-petugas').innerText = totalPetugas.toLocaleString('id-ID');
-            document.getElementById('kpi-sub-avg').innerText = `Rata-rata ${avgPetugas} Petugas/Pos`;
+      renderWilayahChart(topRegions);
+      renderLayananChart(sortedServices);
+    }
 
-            document.getElementById('kpi-total-rute').innerText = totalRute.toLocaleString('id-ID');
-            document.getElementById('kpi-sub-layanan').innerText = `${Object.keys(layananCounts).length} Jenis Layanan Aktif`;
+    function toggleServiceFilter(srv) {
+      const sel = document.getElementById('filter-layanan');
+      state.filters.layanan = (state.filters.layanan === srv) ? '' : srv;
+      sel.value = state.filters.layanan;
+      applyFiltersAndRender();
+    }
 
-            document.getElementById('kpi-total-lahan').innerText = filteredLahanFeatures.length.toLocaleString('id-ID');
-            document.getElementById('kpi-sub-luas').innerText = `Luas Total ${(totalLuas / 10000).toFixed(2)} Ha`;
+    function renderWilayahChart(topRegions) {
+      const ctx = document.getElementById('chart-wilayah').getContext('2d');
+      if (state.charts.wilayah) state.charts.wilayah.destroy();
 
-            // Update Stacked Bar & Pills Jenis Layanan
-            renderLayananBreakdownBar(layananCounts);
-
-            // Render Charts
-            renderWilayahChart(kabAggregation);
-            renderLayananChart(layananCounts);
-        }
-
-        function renderLayananBreakdownBar(layananCounts) {
-            const barContainer = document.getElementById('layanan-stacked-bar');
-            const pillsContainer = document.getElementById('layanan-legend-pills');
-            const entries = Object.entries(layananCounts).sort((a, b) => b[1] - a[1]);
-            const totalTags = entries.reduce((sum, [, c]) => sum + c, 0) || 1;
-
-            if (entries.length === 0) {
-                barContainer.innerHTML = '';
-                pillsContainer.innerHTML = '<span class="text-[11px] text-slate-400">Tidak ada data layanan</span>';
-                return;
+      state.charts.wilayah = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: topRegions.map(([name]) => name),
+          datasets: [
+            {
+              label: 'Jumlah ID_Petugas',
+              data: topRegions.map(([, val]) => val.pos),
+              backgroundColor: '#16A34A',
+              borderRadius: 4,
+              barPercentage: 0.75
+            },
+            {
+              label: 'Jumlah Petugas',
+              data: topRegions.map(([, val]) => val.petugas),
+              backgroundColor: '#1B3668',
+              borderRadius: 4,
+              barPercentage: 0.75
             }
-
-            barContainer.innerHTML = entries.map(([name, count]) => {
-                const pct = (count / totalTags) * 100;
-                const style = getServiceStyle(name);
-                return `<div style="width: ${pct.toFixed(2)}%; background-color: ${style.hex};" class="h-full transition-all duration-500" title="${name}: ${count} Pos"></div>`;
-            }).join('');
-
-            pillsContainer.innerHTML = entries.map(([name, count]) => {
-                const style = getServiceStyle(name);
-                return `
-                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${style.badgeBg} ${style.badgeText} ${style.border}">
-                        <span class="w-2 h-2 rounded-full" style="background-color: ${style.hex};"></span>
-                        ${name}: ${count}
-                    </span>
-                `;
-            }).join('');
-        }
-
-        function renderWilayahChart(kabAggregation) {
-            const ctx = document.getElementById('chart-wilayah').getContext('2d');
-            const sortedEntries = Object.entries(kabAggregation)
-                .sort((a, b) => b[1].petugas - a[1].petugas)
-                .slice(0, 7);
-
-            const labels = sortedEntries.map(([k]) => k.replace('Kota Adm. ', ''));
-            const posData = sortedEntries.map(([, v]) => v.pos);
-            const petugasData = sortedEntries.map(([, v]) => v.petugas);
-
-            if (chartWilayahInstance) chartWilayahInstance.destroy();
-
-            chartWilayahInstance = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Jumlah Pos (ID_Petugas)',
-                            data: posData,
-                            backgroundColor: '#10b981',
-                            borderRadius: 4
-                        },
-                        {
-                            label: 'Jumlah Petugas (Personel)',
-                            data: petugasData,
-                            backgroundColor: '#3b82f6',
-                            borderRadius: 4
-                        }
-                    ]
-                },
-                options: {
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            beginAtZero: true,
-                            ticks: { font: { size: 10 } },
-                            grid: { color: '#f1f5f9' }
-                        },
-                        y: {
-                            ticks: { font: { size: 10, weight: '600' } },
-                            grid: { display: false }
-                        }
-                    }
-                }
-            });
-        }
-
-        function renderLayananChart(layananCounts) {
-            const ctx = document.getElementById('chart-layanan').getContext('2d');
-            const entries = Object.entries(layananCounts).sort((a, b) => b[1] - a[1]);
-            const labels = entries.map(([k]) => k);
-            const values = entries.map(([, v]) => v);
-            const colors = labels.map(l => getServiceStyle(l).hex);
-
-            if (chartLayananInstance) chartLayananInstance.destroy();
-
-            chartLayananInstance = new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: values,
-                        backgroundColor: colors,
-                        borderWidth: 2,
-                        borderColor: '#ffffff'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '62%',
-                    plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: { boxWidth: 10, font: { size: 10, family: 'Inter' } }
-                        }
-                    }
-                }
-            });
-        }
-
-        // =========================================================================
-        // 11. TABULAR LIST & FLY-TO INTERACTION (BERBASIS POS PETUGAS)
-        // =========================================================================
-        function renderFilteredLocationList() {
-            const container = document.getElementById('locations-list-container');
-            document.getElementById('list-count-label').innerText = filteredPetugasFeatures.length;
-
-            if (filteredPetugasFeatures.length === 0) {
-                container.innerHTML = `<div class="p-6 text-center text-xs text-slate-400">Tidak ada pos petugas yang sesuai dengan filter saat ini.</div>`;
-                return;
+          ]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { boxWidth: 10, font: { size: 10 } }
             }
-
-            container.innerHTML = filteredPetugasFeatures.map((feat, idx) => {
-                const p = feat.properties || {};
-                const services = feat._layananList || ['Lainnya'];
-                const serviceBadges = services.map(srv => {
-                    const st = getServiceStyle(srv);
-                    return `<span class="px-1.5 py-0.5 rounded text-[9px] font-bold border ${st.badgeBg} ${st.badgeText} ${st.border}">${srv}</span>`;
-                }).join(' ');
-
-                return `
-                    <div onclick="flyToPetugasFeature(${idx})"
-                         class="p-3 bg-white hover:bg-blue-50/40 border border-slate-200 hover:border-blue-400 rounded-xl cursor-pointer transition shadow-sm">
-                        <div class="flex items-start justify-between gap-2">
-                            <div>
-                                <div class="font-bold text-xs text-slate-800">${p['Nama Titik'] || p.ID_Petugas || '-'}</div>
-                                <div class="text-[10px] text-slate-500 mt-0.5">
-                                    Pos: <strong>${p.ID_Petugas || '-'}</strong> • Lahan: <strong>${p.ID_Lahan || '-'}</strong> • Kec. ${p.WADMKC || '-'}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="flex flex-wrap gap-1 mt-2">
-                            ${serviceBadges}
-                        </div>
-                        <div class="flex items-center justify-between text-[10px] text-slate-600 mt-2 pt-1.5 border-t border-slate-100">
-                            <span><i class="fa-solid fa-building text-slate-400 mr-1"></i>${p.Bentuk || '-'}</span>
-                            <span><i class="fa-solid fa-users text-blue-500 mr-1"></i>${p['Jumlah Pet'] || 0} Petugas</span>
-                            <span><i class="fa-solid fa-route text-amber-500 mr-1"></i>${p['Jumlah Rut'] || 0} Rute</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              grid: { color: '#f1f5f9' },
+              ticks: { font: { size: 10 } }
+            },
+            y: {
+              grid: { display: false },
+              ticks: { font: { size: 10, weight: '600' } }
+            }
+          }
         }
+      });
+    }
 
-        function flyToPetugasFeature(index) {
-            const feat = filteredPetugasFeatures[index];
-            if (!feat) return;
+    function renderLayananChart(sortedServices) {
+      const ctx = document.getElementById('chart-layanan').getContext('2d');
+      if (state.charts.layanan) state.charts.layanan.destroy();
 
-            const [lng, lat] = feat._centroid;
-            map.flyTo([lat, lng], 16, { duration: 1.0 });
-            showObjectInInspector(feat.properties || {}, 'Pos Petugas (Petugas_JSON)');
+      state.charts.layanan = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: sortedServices.map(([srv]) => srv),
+          datasets: [{
+            data: sortedServices.map(([, stat]) => stat.posCount),
+            backgroundColor: sortedServices.map(([srv]) => getServiceColor(srv)),
+            borderWidth: 2,
+            borderColor: '#ffffff'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '62%',
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { boxWidth: 10, font: { size: 10 }, padding: 8 }
+            }
+          }
         }
+      });
+    }
 
-        function fitAllFilteredBounds() {
-            if (filteredPetugasFeatures.length === 0) return;
-            const coords = filteredPetugasFeatures.map(f => [f._centroid[1], f._centroid[0]]);
-            const bounds = L.latLngBounds(coords);
-            map.flyToBounds(bounds, { padding: [50, 50], maxZoom: 15, duration: 0.9 });
+    // =========================================================================
+    // 11. DAFTAR POS PETUGAS DI SIDEBAR
+    // =========================================================================
+    function renderSidebarList() {
+      const container = document.getElementById('tab-list');
+      if (state.filteredPetugas.length === 0) {
+        container.innerHTML = `<div class="text-center py-10 text-xs text-slate-400">Tidak ada pos petugas yang sesuai dengan filter.</div>`;
+        return;
+      }
+
+      container.innerHTML = state.filteredPetugas.slice(0, 120).map((f, idx) => {
+        const p = f.properties || {};
+        const services = parseServices(p.Layanan);
+        return `
+          <div onclick="focusOnPetugas(${idx})"
+            class="bg-white border border-slate-200 hover:border-[#1B3668] rounded-xl p-2.5 cursor-pointer transition shadow-sm">
+            <div class="flex items-start justify-between gap-2">
+              <div class="min-w-0">
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-50 text-[#1B3668] border border-blue-200">${p.ID_Petugas || '-'}</span>
+                  <span class="text-xs font-bold text-slate-800 truncate">${p['Nama Titik'] || '-'}</span>
+                </div>
+                <div class="text-[10px] text-slate-500 mt-1 truncate">${[p.WADMKC, p.WADMKK].filter(Boolean).join(', ')}</div>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="text-xs font-extrabold text-[#1B3668]">${Number(p['Jumlah Pet'] || 0)}</span>
+                <div class="text-[9px] text-slate-400">Petugas</div>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1 mt-2">
+              ${services.map(srv => `
+                <span class="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">
+                  <span class="w-1.5 h-1.5 rounded-full" style="background:${getServiceColor(srv)};"></span>
+                  ${srv}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function focusOnPetugas(idx) {
+      const feature = state.filteredPetugas[idx];
+      if (!feature) return;
+      const coords = feature.geometry && feature.geometry.coordinates;
+      if (coords && coords.length >= 2) {
+        map.flyTo([coords[1], coords[0]], 19, { duration: 0.7 });
+      }
+      showObjectDetail(feature.properties, 'Pos Petugas');
+    }
+
+    // =========================================================================
+    // 12. EVENT LISTENERS & NAVIGASI TAB
+    // =========================================================================
+    function switchSidebarTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        const active = btn.dataset.tab === tabName;
+        btn.classList.toggle('active', active);
+        btn.classList.toggle('border-[#1B3668]', active);
+        btn.classList.toggle('text-[#1B3668]', active);
+        btn.classList.toggle('font-bold', active);
+        btn.classList.toggle('border-transparent', !active);
+        btn.classList.toggle('text-slate-500', !active);
+      });
+
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.toggle('hidden', panel.id !== `tab-${tabName}`);
+      });
+    }
+
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchSidebarTab(btn.dataset.tab));
+    });
+
+    const searchInput = document.getElementById('search-input');
+    const clearSearchBtn = document.getElementById('clear-search');
+
+    searchInput.addEventListener('input', (e) => {
+      state.filters.search = e.target.value;
+      clearSearchBtn.classList.toggle('hidden', !e.target.value);
+      applyFiltersAndRender();
+    });
+
+    clearSearchBtn.addEventListener('click', () => {
+      searchInput.value = '';
+      state.filters.search = '';
+      clearSearchBtn.classList.add('hidden');
+      applyFiltersAndRender();
+    });
+
+    document.getElementById('filter-provinsi').addEventListener('change', (e) => {
+      state.filters.provinsi = e.target.value;
+      state.filters.kabkota = '';
+      state.filters.kecamatan = '';
+      updateCascadingRegionDropdowns();
+      applyFiltersAndRender();
+    });
+
+    document.getElementById('filter-kabkota').addEventListener('change', (e) => {
+      state.filters.kabkota = e.target.value;
+      state.filters.kecamatan = '';
+      updateCascadingRegionDropdowns();
+      applyFiltersAndRender();
+    });
+
+    document.getElementById('filter-kecamatan').addEventListener('change', (e) => {
+      state.filters.kecamatan = e.target.value;
+      applyFiltersAndRender();
+    });
+
+    document.getElementById('filter-layanan').addEventListener('change', (e) => {
+      state.filters.layanan = e.target.value;
+      applyFiltersAndRender();
+    });
+
+    document.getElementById('filter-bentuk').addEventListener('change', (e) => {
+      state.filters.bentuk = e.target.value;
+      applyFiltersAndRender();
+    });
+
+    document.getElementById('toggle-wilayah').addEventListener('change', (e) => {
+      if (e.target.checked) map.addLayer(wilayahLayerGroup);
+      else map.removeLayer(wilayahLayerGroup);
+    });
+
+    document.getElementById('toggle-lahan').addEventListener('change', renderMapFeatures);
+    document.getElementById('toggle-petugas').addEventListener('change', renderMapFeatures);
+
+    function fitMapToData() {
+      const coords = [];
+      (state.rawPetugas.features || []).forEach(f => {
+        if (f.geometry && f.geometry.coordinates) {
+          coords.push([f.geometry.coordinates[1], f.geometry.coordinates[0]]);
         }
+      });
+      if (coords.length > 0) {
+        map.fitBounds(L.latLngBounds(coords), { padding: [40, 40], maxZoom: 12 });
+      }
+    }
 
-        // =========================================================================
-        // 12. UI TAB SWITCHING & EVENT LISTENERS
-        // =========================================================================
-        function switchSidebarTab(tabName) {
-            const tabs = ['stats', 'list', 'detail'];
-            tabs.forEach(t => {
-                const btn = document.getElementById(`tab-btn-${t}`);
-                const panel = document.getElementById(`panel-${t}`);
-                if (t === tabName) {
-                    btn.className = 'py-2 px-2 rounded-lg bg-white text-emerald-700 shadow-sm transition flex items-center justify-center gap-1.5';
-                    panel.classList.remove('hidden');
-                } else {
-                    btn.className = 'py-2 px-2 rounded-lg text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1.5';
-                    panel.classList.add('hidden');
-                }
-            });
-        }
+    document.getElementById('btn-reset-view').addEventListener('click', () => {
+      state.filters = { search: '', provinsi: '', kabkota: '', kecamatan: '', layanan: '', bentuk: '' };
+      searchInput.value = '';
+      clearSearchBtn.classList.add('hidden');
+      populateFilterDropdowns();
+      applyFiltersAndRender();
+      fitMapToData();
+    });
 
-        function resetAllFilters() {
-            document.getElementById('filter-search').value = '';
-            document.getElementById('btn-clear-search').classList.add('hidden');
-            document.getElementById('filter-prov').value = 'ALL';
-            updateCascadingAdminDropdowns();
-            document.getElementById('filter-kab').value = 'ALL';
-            document.getElementById('filter-kec').value = 'ALL';
-            document.getElementById('filter-layanan').value = 'ALL';
-            document.getElementById('filter-bentuk').value = 'ALL';
-            applyFiltersAndRender();
-        }
+    map.on('zoomend', renderMapFeatures);
 
-        function setupEventListeners() {
-            const searchInput = document.getElementById('filter-search');
-            const clearBtn = document.getElementById('btn-clear-search');
-
-            searchInput.addEventListener('input', () => {
-                clearBtn.classList.toggle('hidden', searchInput.value.length === 0);
-                applyFiltersAndRender();
-            });
-
-            clearBtn.addEventListener('click', () => {
-                searchInput.value = '';
-                clearBtn.classList.add('hidden');
-                applyFiltersAndRender();
-            });
-
-            document.getElementById('filter-prov').addEventListener('change', () => {
-                updateCascadingAdminDropdowns();
-                applyFiltersAndRender();
-            });
-
-            document.getElementById('filter-kab').addEventListener('change', () => {
-                updateCascadingAdminDropdowns();
-                applyFiltersAndRender();
-            });
-
-            document.getElementById('filter-kec').addEventListener('change', applyFiltersAndRender);
-            document.getElementById('filter-layanan').addEventListener('change', applyFiltersAndRender);
-            document.getElementById('filter-bentuk').addEventListener('change', applyFiltersAndRender);
-
-            // Map Layer Toggles
-            document.getElementById('toggle-layer-wilayah').addEventListener('change', (e) => {
-                if (e.target.checked) map.addLayer(layerWilayahGroup);
-                else map.removeLayer(layerWilayahGroup);
-            });
-
-            document.getElementById('toggle-layer-lahan').addEventListener('change', renderMapByZoomScale);
-            document.getElementById('toggle-layer-petugas').addEventListener('change', renderMapByZoomScale);
-        }
-    </script>
+    // Inisialisasi ikon & mulai baca data GeoJSON
+    lucide.createIcons();
+    loadGeoJSONFiles();
+  </script>
 </body>
 </html>
