@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 
-  <!-- Turf.js untuk Dissolve Batas Wilayah Dinamis -->
+  <!-- Turf.js untuk Penggabungan Batas Wilayah Dinamis -->
   <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6/turf.min.js"></script>
 
   <!-- Chart.js -->
@@ -176,7 +176,7 @@
           </div>
         </div>
 
-        <!-- Filter Jenis Layanan & Bentuk Prasarana -->
+        <!-- Filter Jenis Layanan & Bentuk Titik Ujung -->
         <div class="grid grid-cols-2 gap-1.5">
           <div>
             <label class="block text-[10px] font-bold text-[#1B3668] uppercase mb-0.5">Jenis Layanan</label>
@@ -304,9 +304,24 @@
     <main class="flex-1 relative h-full min-w-0">
       <div id="map"></div>
 
-      <!-- BADGE STATUS SKALA & KLASTER INTERAKTIF (KANAN ATAS SEPERTI REFERENSI) -->
-      <div class="absolute top-3 right-14 z-[400] flex items-center gap-2 pointer-events-none">
-        <div class="bg-[#1B3668] text-white px-3.5 py-1.5 rounded-full shadow-lg border border-white/20 flex items-center gap-2 text-xs font-bold">
+      <!-- BADGE STATUS SKALA & PILIHAN MODE KLASTER (KANAN ATAS) -->
+      <div class="absolute top-3 right-3 z-[400] flex flex-wrap items-center justify-end gap-2">
+        <!-- Toggle Hitungan Klaster: Jumlah Petugas vs Lahan Petugas -->
+        <div class="bg-white/95 backdrop-blur p-1 rounded-full shadow-lg border border-slate-200 flex items-center gap-0.5 text-[11px] font-bold">
+          <button id="btn-metric-petugas" type="button"
+            class="px-3 py-1 rounded-full bg-[#1B3668] text-white transition flex items-center gap-1 shadow-sm">
+            <i data-lucide="users" class="w-3 h-3"></i>
+            <span>Jumlah Petugas</span>
+          </button>
+          <button id="btn-metric-lahan" type="button"
+            class="px-3 py-1 rounded-full text-slate-600 hover:text-[#1B3668] transition flex items-center gap-1">
+            <i data-lucide="map-pin" class="w-3 h-3"></i>
+            <span>Lahan Petugas</span>
+          </button>
+        </div>
+
+        <!-- Indikator Level Zoom -->
+        <div class="bg-[#1B3668] text-white px-3.5 py-1.5 rounded-full shadow-lg border border-white/20 flex items-center gap-2 text-xs font-bold pointer-events-none">
           <i data-lucide="search" class="w-3.5 h-3.5 text-blue-200"></i>
           <span id="zoom-mode-label">Klaster: KABUPATEN/KOTA</span>
           <span class="text-blue-200 font-normal">|</span>
@@ -324,15 +339,15 @@
         <div class="space-y-1.5 mb-2.5">
           <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
             <input type="checkbox" id="toggle-wilayah" checked class="rounded text-[#1B3668] focus:ring-[#1B3668]" />
-            <span>Batas Wilayah (LN) (<code class="text-[10px] text-[#1B3668] font-semibold"></code>)</span>
+            <span>Batas Wilayah (LN)</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
             <input type="checkbox" id="toggle-lahan" checked class="rounded text-[#1B3668] focus:ring-[#1B3668]" />
-            <span>Lahan Titik Ujung (AR) (<code class="text-[10px] text-[#1B3668] font-semibold"></code>)</span>
+            <span>Lahan Titik Ujung (AR)</span>
           </label>
           <label class="flex items-center gap-2 cursor-pointer text-[11px] text-slate-700">
             <input type="checkbox" id="toggle-petugas" checked class="rounded text-[#1B3668] focus:ring-[#1B3668]" />
-            <span>Pos Petugas (PT) (<code class="text-[10px] text-[#1B3668] font-semibold"></code>)</span>
+            <span>Pos Petugas (PT)</span>
           </label>
         </div>
 
@@ -698,6 +713,7 @@
         kecamatan: null
       },
       currentBoundaryLevel: null,
+      clusterMetric: 'petugas', // 'petugas' (Jumlah Petugas) | 'lahan' (Lahan Petugas)
       lahanMapById: {},
       filteredPetugas: [],
       filteredLahan: [],
@@ -778,7 +794,7 @@
             loadedLiveCount++;
             return json;
           }
-          throw new Error('GeoJSON salah');
+          throw new Error('GeoJSON tidak valid');
         } catch (err) {
           console.warn(`Menggunakan data fallback untuk ${url}:`, err.message);
           return fallbackData;
@@ -795,7 +811,7 @@
       state.rawPetugas = petugasData;
       state.rawWilayah = wilayahData;
 
-      // Siapkan cache batas wilayah (Kecamatan, Kab/Kota, Provinsi)
+      // Siapkan cache batas wilayah (Kecamatan, Kab/Kota, Provinsi) secara tahan-galat
       prepareBoundaryLevels();
 
       // Bangun lookup ID_Lahan untuk memperkaya data wilayah & luas pada Pos Petugas
@@ -823,7 +839,7 @@
         badge.textContent = 'Online';
         badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-200 border border-emerald-400/30';
       } else {
-        badge.textContent = `Online (${loadedLiveCount})`;
+        badge.textContent = `Online (${loadedLiveCount}/3)`;
         badge.className = 'text-[10px] font-semibold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-200 border border-amber-400/30';
       }
 
@@ -843,33 +859,84 @@
       return { key: 'detail', prop: 'WADMKC', label: 'PER TITIK (< 1:50.000)' };
     }
 
-    function dissolveByProperty(geojson, propName) {
-      if (!geojson || !geojson.features || typeof turf === 'undefined') return geojson;
-      try {
-        // Filter hanya geometri poligon/multipoligon valid dengan properti tidak kosong
-        const validPolys = {
-          type: 'FeatureCollection',
-          features: geojson.features
-            .filter(f => f && f.geometry && (f.geometry.type === 'Polygon' || f.geometry.type === 'MultiPolygon'))
-            .map(f => ({
-              type: 'Feature',
-              properties: {
-                [propName]: (f.properties && f.properties[propName]) ? String(f.properties[propName]).trim() : 'Lainnya'
-              },
-              geometry: f.geometry
-            }))
-        };
-        return turf.dissolve(validPolys, { propertyName: propName });
-      } catch (err) {
-        console.warn(`Gagal ${propName}, kamu gagal:`, err);
-        return geojson;
-      }
+    // Penggabungan geometri per atribut wilayah (WADMKK / WADMPR) yang tahan terhadap self-intersection & MultiPolygon
+    function mergePolygonsByAttribute(geojson, propName) {
+      if (!geojson || !Array.isArray(geojson.features) || typeof turf === 'undefined') return geojson;
+
+      const grouped = {};
+      geojson.features.forEach(f => {
+        if (!f || !f.geometry) return;
+        const type = f.geometry.type;
+        if (type !== 'Polygon' && type !== 'MultiPolygon') return;
+
+        const rawVal = f.properties && f.properties[propName];
+        const key = rawVal ? String(rawVal).trim() : 'Lainnya';
+        if (!grouped[key]) grouped[key] = [];
+
+        // Pecah MultiPolygon menjadi Polygon tunggal lalu bersihkan simpul duplikat
+        try {
+          if (type === 'MultiPolygon') {
+            turf.flatten(f).features.forEach(single => grouped[key].push(single));
+          } else {
+            grouped[key].push(turf.cleanCoords(f));
+          }
+        } catch (e) {
+          grouped[key].push(f);
+        }
+      });
+
+      const mergedFeatures = [];
+      Object.entries(grouped).forEach(([regionName, polyList]) => {
+        if (polyList.length === 0) return;
+
+        let accumulated = polyList[0];
+        const fallbackPolys = [];
+
+        for (let i = 1; i < polyList.length; i++) {
+          const nextPoly = polyList[i];
+          try {
+            const unified = turf.union(accumulated, nextPoly);
+            if (unified) {
+              accumulated = unified;
+            } else {
+              fallbackPolys.push(nextPoly);
+            }
+          } catch (err) {
+            // Jika salah satu poligon mengalami topological error, coba perbaiki dengan buffer(0)
+            try {
+              const repairedA = turf.buffer(accumulated, 0);
+              const repairedB = turf.buffer(nextPoly, 0);
+              const unifiedRepaired = turf.union(repairedA, repairedB);
+              if (unifiedRepaired) {
+                accumulated = unifiedRepaired;
+              } else {
+                fallbackPolys.push(nextPoly);
+              }
+            } catch (err2) {
+              fallbackPolys.push(nextPoly);
+            }
+          }
+        }
+
+        accumulated.properties = { [propName]: regionName };
+        mergedFeatures.push(accumulated);
+
+        fallbackPolys.forEach(fp => {
+          fp.properties = { [propName]: regionName };
+          mergedFeatures.push(fp);
+        });
+      });
+
+      return {
+        type: 'FeatureCollection',
+        features: mergedFeatures
+      };
     }
 
     function prepareBoundaryLevels() {
       state.dissolvedWilayahCache.kecamatan = state.rawWilayah;
-      state.dissolvedWilayahCache.kabkota = dissolveByProperty(state.rawWilayah, 'WADMKK');
-      state.dissolvedWilayahCache.provinsi = dissolveByProperty(state.rawWilayah, 'WADMPR');
+      state.dissolvedWilayahCache.kabkota = mergePolygonsByAttribute(state.rawWilayah, 'WADMKK');
+      state.dissolvedWilayahCache.provinsi = mergePolygonsByAttribute(state.rawWilayah, 'WADMPR');
     }
 
     function renderWilayahBoundaries(force = false) {
@@ -887,20 +954,18 @@
 
       const targetGeoJSON = state.dissolvedWilayahCache[boundaryLevel] || state.rawWilayah;
 
-      // Ketebalan garis menyesuaikan jenjang wilayah agar jelas terbaca
-      const baseWeight = boundaryLevel === 'provinsi' ? 2.4 : (boundaryLevel === 'kabkota' ? 1.8 : 1.2);
-      const hoverWeight = boundaryLevel === 'provinsi' ? 4.0 : (boundaryLevel === 'kabkota' ? 3.2 : 2.6);
+      const baseWeight = boundaryLevel === 'provinsi' ? 2.5 : (boundaryLevel === 'kabkota' ? 1.9 : 1.2);
+      const hoverWeight = boundaryLevel === 'provinsi' ? 4.2 : (boundaryLevel === 'kabkota' ? 3.4 : 2.6);
 
       L.geoJSON(targetGeoJSON, {
         style: {
           color: '#1B3668',
           weight: baseWeight,
-          opacity: 0.72,
+          opacity: 0.78,
           fillColor: '#1B3668',
           fillOpacity: 0.015
         },
         onEachFeature: (feature, layer) => {
-          // Hover murni menyorot garis batas wilayah tanpa kotak tooltip maupun outline fokus
           layer.on({
             mouseover: (e) => {
               const target = e.target;
@@ -908,7 +973,7 @@
                 color: '#00529C',
                 weight: hoverWeight,
                 opacity: 1,
-                fillOpacity: 0.04
+                fillOpacity: 0.05
               });
               if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
                 target.bringToFront();
@@ -918,7 +983,7 @@
               e.target.setStyle({
                 color: '#1B3668',
                 weight: baseWeight,
-                opacity: 0.72,
+                opacity: 0.78,
                 fillOpacity: 0.015
               });
             }
@@ -1041,7 +1106,7 @@
     }
 
     // =========================================================================
-    // 8. RENDER PETA BERDASARKAN SKALA ZOOM (PIL KLASTER COUNT LAHAN VS DETAIL)
+    // 8. RENDER PETA BERDASARKAN SKALA ZOOM (OPSI JUMLAH PETUGAS VS LAHAN PETUGAS)
     // =========================================================================
     function buildSegmentedGradient(serviceCounts) {
       const entries = Object.entries(serviceCounts).filter(([, v]) => v > 0);
@@ -1095,8 +1160,8 @@
             },
             onEachFeature: (feature, layer) => {
               const p = feature.properties || {};
-              layer.bindPopup(buildFeaturePopupHTML(p, 'Poligon Lahan'));
-              layer.on('click', () => showObjectDetail(p, 'Poligon Lahan'));
+              layer.bindPopup(buildFeaturePopupHTML(p, 'Lahan Titik Ujung'));
+              layer.on('click', () => showObjectDetail(p, 'Lahan Titik Ujung'));
             }
           }).addTo(lahanLayerGroup);
         }
@@ -1128,43 +1193,77 @@
       }
 
       // MODE KLASTER BERJENJANG (PROVINSI / KABUPATEN-KOTA / KECAMATAN)
-      // Angka di dalam pil klaster menggunakan jumlah count lahan (ID_Lahan unik / jumlah fitur lahan)
       if (!showPetugas && !showLahan) return;
 
       const groups = {};
-      state.filteredLahan.forEach(feature => {
-        const p = feature.properties || {};
-        let centroidCoords = null;
-        if (feature.geometry && typeof turf !== 'undefined') {
-          try {
-            const c = turf.centroid(feature);
-            centroidCoords = c.geometry.coordinates;
-          } catch (e) {}
-        }
-        if (!centroidCoords) return;
 
-        const regionKey = (p[mode.prop] && p[mode.prop] !== 'Tidak Diketahui') ? p[mode.prop] : 'Wilayah Lainnya';
-        if (!groups[regionKey]) {
-          groups[regionKey] = {
-            name: regionKey,
-            sumLat: 0,
-            sumLng: 0,
-            pointCount: 0,
-            lahanCount: 0,
-            serviceCounts: {}
-          };
-        }
+      if (state.clusterMetric === 'petugas') {
+        // OPSI 1: Berdasarkan Jumlah Petugas (dari titik Pos Petugas)
+        state.filteredPetugas.forEach(feature => {
+          const p = feature.properties || {};
+          const coords = feature.geometry && feature.geometry.coordinates;
+          if (!coords || coords.length < 2) return;
 
-        const g = groups[regionKey];
-        g.sumLat += centroidCoords[1];
-        g.sumLng += centroidCoords[0];
-        g.pointCount += 1;
-        g.lahanCount += 1;
+          const regionKey = (p[mode.prop] && p[mode.prop] !== 'Tidak Diketahui') ? p[mode.prop] : 'Wilayah Lainnya';
+          if (!groups[regionKey]) {
+            groups[regionKey] = {
+              name: regionKey,
+              sumLat: 0,
+              sumLng: 0,
+              pointCount: 0,
+              displayValue: 0,
+              unitLabel: 'Petugas',
+              serviceCounts: {}
+            };
+          }
 
-        parseServices(p.Layanan).forEach(srv => {
-          g.serviceCounts[srv] = (g.serviceCounts[srv] || 0) + 1;
+          const g = groups[regionKey];
+          g.sumLat += coords[1];
+          g.sumLng += coords[0];
+          g.pointCount += 1;
+          g.displayValue += (Number(p['Jumlah Pet']) || 0);
+
+          parseServices(p.Layanan).forEach(srv => {
+            g.serviceCounts[srv] = (g.serviceCounts[srv] || 0) + 1;
+          });
         });
-      });
+      } else {
+        // OPSI 2: Berdasarkan Lahan Petugas (Count jumlah lahan titik ujung per wilayah)
+        state.filteredLahan.forEach(feature => {
+          const p = feature.properties || {};
+          let centroidCoords = null;
+          if (feature.geometry && typeof turf !== 'undefined') {
+            try {
+              const c = turf.centroid(feature);
+              centroidCoords = c.geometry.coordinates;
+            } catch (e) {}
+          }
+          if (!centroidCoords) return;
+
+          const regionKey = (p[mode.prop] && p[mode.prop] !== 'Tidak Diketahui') ? p[mode.prop] : 'Wilayah Lainnya';
+          if (!groups[regionKey]) {
+            groups[regionKey] = {
+              name: regionKey,
+              sumLat: 0,
+              sumLng: 0,
+              pointCount: 0,
+              displayValue: 0,
+              unitLabel: 'Lahan',
+              serviceCounts: {}
+            };
+          }
+
+          const g = groups[regionKey];
+          g.sumLat += centroidCoords[1];
+          g.sumLng += centroidCoords[0];
+          g.pointCount += 1;
+          g.displayValue += 1;
+
+          parseServices(p.Layanan).forEach(srv => {
+            g.serviceCounts[srv] = (g.serviceCounts[srv] || 0) + 1;
+          });
+        });
+      }
 
       Object.values(groups).forEach(group => {
         if (group.pointCount === 0) return;
@@ -1174,7 +1273,7 @@
 
         const icon = L.divIcon({
           className: '',
-          html: `<div class="service-pill-marker" style="background: ${bgGradient};" title="${group.name}: ${group.lahanCount} Lahan">${group.lahanCount.toLocaleString('id-ID')}</div>`,
+          html: `<div class="service-pill-marker" style="background: ${bgGradient};" title="${group.name}: ${group.displayValue.toLocaleString('id-ID')} ${group.unitLabel}">${group.displayValue.toLocaleString('id-ID')}</div>`,
           iconSize: [76, 30],
           iconAnchor: [38, 15]
         });
@@ -1329,7 +1428,7 @@
       document.getElementById('tab-list-count').textContent = totalPos.toLocaleString('id-ID');
       document.getElementById('kpi-pos').textContent = totalPos.toLocaleString('id-ID');
       document.getElementById('kpi-petugas').textContent = totalPetugas.toLocaleString('id-ID');
-      document.getElementById('kpi-avg-petugas').textContent = `Rata-rata ${totalPos > 0 ? (totalPetugas / totalPos).toFixed(1) : '0'} / pos`;
+      document.getElementById('kpi-avg-petugas').textContent = `Rata-rata ${totalPos > 0 ? (totalPetugas / totalPos).toFixed(1) : '0'}/pos`;
       document.getElementById('kpi-luas').textContent = `${Math.round(totalLuas).toLocaleString('id-ID')} m²`;
       document.getElementById('kpi-luas-ha').textContent = `${(totalLuas / 10000).toFixed(2)} Hektar`;
       document.getElementById('kpi-rute').textContent = totalRute.toLocaleString('id-ID');
@@ -1520,8 +1619,26 @@
     }
 
     // =========================================================================
-    // 12. EVENT LISTENERS & NAVIGASI TAB
+    // 12. EVENT LISTENERS, TOGGLE KLASTER & NAVIGASI TAB
     // =========================================================================
+    function setClusterMetric(metric) {
+      state.clusterMetric = metric;
+      const btnPetugas = document.getElementById('btn-metric-petugas');
+      const btnLahan = document.getElementById('btn-metric-lahan');
+
+      if (metric === 'petugas') {
+        btnPetugas.className = 'px-3 py-1 rounded-full bg-[#1B3668] text-white transition flex items-center gap-1 shadow-sm';
+        btnLahan.className = 'px-3 py-1 rounded-full text-slate-600 hover:text-[#1B3668] transition flex items-center gap-1';
+      } else {
+        btnLahan.className = 'px-3 py-1 rounded-full bg-[#1B3668] text-white transition flex items-center gap-1 shadow-sm';
+        btnPetugas.className = 'px-3 py-1 rounded-full text-slate-600 hover:text-[#1B3668] transition flex items-center gap-1';
+      }
+      renderMapFeatures();
+    }
+
+    document.getElementById('btn-metric-petugas').addEventListener('click', () => setClusterMetric('petugas'));
+    document.getElementById('btn-metric-lahan').addEventListener('click', () => setClusterMetric('lahan'));
+
     function switchSidebarTab(tabName) {
       document.querySelectorAll('.tab-btn').forEach(btn => {
         const active = btn.dataset.tab === tabName;
