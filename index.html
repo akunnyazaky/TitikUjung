@@ -41,14 +41,12 @@
       background: #e2e8f0;
     }
 
-    /* Hilangkan kotak fokus hitam saat klik/hover poligon SVG Leaflet */
     .leaflet-interactive:focus,
     path.leaflet-interactive:focus,
     svg.leaflet-zoom-animated path:focus {
       outline: none !important;
     }
 
-    /* Custom Scrollbar untuk Sidebar Permanen */
     .custom-scroll::-webkit-scrollbar {
       width: 5px;
       height: 5px;
@@ -64,7 +62,6 @@
       background: #94a3b8;
     }
 
-    /* Pil Klaster Multi-Warna Segmen Jenis Layanan */
     .service-pill-marker {
       display: inline-flex;
       align-items: center;
@@ -90,7 +87,6 @@
       z-index: 999 !important;
     }
 
-    /* Custom Popup Leaflet */
     .leaflet-popup-content-wrapper {
       border-radius: 12px;
       box-shadow: 0 10px 25px -5px rgba(27, 54, 104, 0.2), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
@@ -109,7 +105,7 @@
 </head>
 <body class="flex flex-col h-screen w-screen overflow-hidden text-slate-800">
 
-  <!-- TOP HEADER BAR (TEMA NAVY TRANSJAKARTA) -->
+  <!-- TOP HEADER BAR -->
   <header class="h-14 bg-[#1B3668] text-white flex items-center justify-between px-4 shrink-0 shadow-md z-30 border-b border-[#13274d]">
     <div class="flex items-center gap-3">
       <div class="h-9 px-2 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center shrink-0">
@@ -211,7 +207,6 @@
 
       <!-- KONTEN TAB 1: DASHBOARD STATISTIK -->
       <div id="tab-stats" class="tab-panel flex-1 overflow-y-auto custom-scroll p-3.5 space-y-3.5">
-        <!-- KPI Cards (Berbasis ID_Petugas & Jumlah Petugas) -->
         <div class="grid grid-cols-2 gap-2.5">
           <div class="bg-white border border-slate-200 border-l-4 border-l-[#1B3668] rounded-xl p-3 shadow-sm">
             <div class="flex items-center justify-between text-[#1B3668] mb-1">
@@ -250,7 +245,6 @@
           </div>
         </div>
 
-        <!-- Legenda Kode Warna Jenis Layanan -->
         <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-xs font-bold text-[#1B3668]">Jenis Layanan</h3>
@@ -259,7 +253,6 @@
           <div id="service-legend-list" class="space-y-1.5"></div>
         </div>
 
-        <!-- Chart 1: Sebaran ID_Petugas vs Jumlah Petugas per Wilayah -->
         <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-xs font-bold text-[#1B3668]">Sebaran Lokasi dan Petugas per Wilayah</h3>
@@ -270,7 +263,6 @@
           </div>
         </div>
 
-        <!-- Chart 2: Komposisi Jenis Layanan -->
         <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-sm">
           <div class="flex items-center justify-between mb-2">
             <h3 class="text-xs font-bold text-[#1B3668]">Proporsi Jenis Layanan</h3>
@@ -284,7 +276,6 @@
 
       <!-- KONTEN TAB 2: DAFTAR POS PETUGAS -->
       <div id="tab-list" class="tab-panel hidden flex-1 overflow-y-auto custom-scroll p-3 space-y-2 bg-slate-50">
-        <!-- Diisi secara dinamis -->
       </div>
 
       <!-- KONTEN TAB 3: DETAIL OBJEK TERPILIH -->
@@ -306,7 +297,6 @@
 
       <!-- BADGE STATUS SKALA & PILIHAN MODE KLASTER (KANAN ATAS) -->
       <div class="absolute top-3 right-3 z-[400] flex flex-wrap items-center justify-end gap-2">
-        <!-- Toggle Hitungan Klaster: Jumlah Petugas vs Lahan Petugas -->
         <div class="bg-white/95 backdrop-blur p-1 rounded-full shadow-lg border border-slate-200 flex items-center gap-0.5 text-[11px] font-bold">
           <button id="btn-metric-petugas" type="button"
             class="px-3 py-1 rounded-full bg-[#1B3668] text-white transition flex items-center gap-1 shadow-sm">
@@ -320,7 +310,6 @@
           </button>
         </div>
 
-        <!-- Indikator Level Zoom -->
         <div class="bg-[#1B3668] text-white px-3.5 py-1.5 rounded-full shadow-lg border border-white/20 flex items-center gap-2 text-xs font-bold pointer-events-none">
           <i data-lucide="search" class="w-3.5 h-3.5 text-blue-200"></i>
           <span id="zoom-mode-label">Klaster: KABUPATEN/KOTA</span>
@@ -376,16 +365,116 @@
 
   <script>
     // =========================================================================
-    // 1. PALET WARNA JENIS LAYANAN (DISESUAIKAN DENGAN TEMA DASHBOARD TJ)
+    // 1. HELPER PEMBACA ATRIBUT FLEKSIBEL (ANTISIPASI VARIASI KOLOM QGIS)
+    // =========================================================================
+    function getProp(p, keys, defaultVal = '') {
+      if (!p) return defaultVal;
+      for (const k of keys) {
+        if (p[k] !== undefined && p[k] !== null && String(p[k]).trim() !== '') {
+          return p[k];
+        }
+      }
+      return defaultVal;
+    }
+
+    function getJumlahPetugas(p) {
+      const val = getProp(p, ['Jumlah Pet', 'Jumlah_Pet', 'JumlahPet', 'JUMLAH_PET', 'Jumlah Petugas', 'Jml_Pet', 'Petugas'], 0);
+      const num = Number(val);
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function getJumlahRute(p) {
+      const val = getProp(p, ['Jumlah Rut', 'Jumlah_Rut', 'JumlahRut', 'JUMLAH_RUT', 'Jumlah Rute', 'Jml_Rut'], 0);
+      const num = Number(val);
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    function getLuasLahan(p) {
+      const val = getProp(p, ['Luas', 'LUAS', 'LuasLahan', 'Luas_Lahan', 'Shape_Area'], 0);
+      const num = Number(val);
+      return Number.isFinite(num) ? num : 0;
+    }
+
+    // =========================================================================
+    // HELPER KOORDINAT: DUKUNG POINT, MULTIPOINT & AUTO-KONVERSI UTM 48S -> WGS84
+    // =========================================================================
+    function utm48sToLatLng(easting, northing) {
+      const a = 6378137.0;
+      const e = 0.0818191908426215;
+      const e1sq = 0.00673949674227643;
+      const k0 = 0.9996;
+
+      const x = easting - 500000.0;
+      const y = northing - 10000000.0;
+
+      const M = y / k0;
+      const mu = M / (a * (1 - Math.pow(e, 2) / 4 - 3 * Math.pow(e, 4) / 64 - 5 * Math.pow(e, 6) / 256));
+
+      const e1 = (1 - Math.sqrt(1 - Math.pow(e, 2))) / (1 + Math.sqrt(1 - Math.pow(e, 2)));
+      const J1 = (3 * e1 / 2 - 27 * Math.pow(e1, 3) / 32);
+      const J2 = (21 * Math.pow(e1, 2) / 16 - 55 * Math.pow(e1, 4) / 32);
+      const J3 = (151 * Math.pow(e1, 3) / 96);
+      const J4 = (1097 * Math.pow(e1, 4) / 512);
+
+      const fp = mu + J1 * Math.sin(2 * mu) + J2 * Math.sin(4 * mu) + J3 * Math.sin(6 * mu) + J4 * Math.sin(8 * mu);
+
+      const C1 = e1sq * Math.pow(Math.cos(fp), 2);
+      const T1 = Math.pow(Math.tan(fp), 2);
+      const R1 = a * (1 - Math.pow(e, 2)) / Math.pow(1 - Math.pow(e, 2) * Math.pow(Math.sin(fp), 2), 1.5);
+      const N1 = a / Math.sqrt(1 - Math.pow(e, 2) * Math.pow(Math.sin(fp), 2));
+      const D = x / (N1 * k0);
+
+      const Q1 = N1 * Math.tan(fp) / R1;
+      const Q2 = Math.pow(D, 2) / 2;
+      const Q3 = (5 + 3 * T1 + 10 * C1 - 4 * Math.pow(C1, 2) - 9 * e1sq) * Math.pow(D, 4) / 24;
+      const Q4 = (61 + 90 * T1 + 298 * C1 + 45 * Math.pow(T1, 2) - 3 * Math.pow(C1, 2) - 252 * e1sq) * Math.pow(D, 6) / 720;
+      const latRad = fp - Q1 * (Q2 - Q3 + Q4);
+
+      const Q5 = D;
+      const Q6 = (1 + 2 * T1 + C1) * Math.pow(D, 3) / 6;
+      const Q7 = (5 - 2 * C1 + 28 * T1 - 3 * Math.pow(C1, 2) + 8 * e1sq + 24 * Math.pow(T1, 2)) * Math.pow(D, 5) / 120;
+      const lngOrigin = 105.0;
+      const lngRad = (Q5 - Q6 + Q7) / Math.cos(fp);
+
+      return [latRad * (180 / Math.PI), lngOrigin + lngRad * (180 / Math.PI)];
+    }
+
+    function extractLatLng(geometry) {
+      if (!geometry || !geometry.coordinates) return null;
+      let rawCoord = null;
+
+      if (geometry.type === 'Point') {
+        rawCoord = geometry.coordinates;
+      } else if (geometry.type === 'MultiPoint' && Array.isArray(geometry.coordinates[0])) {
+        rawCoord = geometry.coordinates[0];
+      } else if (typeof turf !== 'undefined') {
+        try {
+          rawCoord = turf.centroid({ type: 'Feature', geometry }).geometry.coordinates;
+        } catch (e) {}
+      }
+
+      if (!rawCoord || rawCoord.length < 2) return null;
+      const x = Number(rawCoord[0]);
+      const y = Number(rawCoord[1]);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+
+      if (Math.abs(x) > 180 || Math.abs(y) > 90) {
+        return utm48sToLatLng(x, y);
+      }
+      return [y, x];
+    }
+
+    // =========================================================================
+    // 2. PALET WARNA JENIS LAYANAN
     // =========================================================================
     const SERVICE_COLOR_MAP = {
-      'BRT': '#16A34A',               // Hijau Segar
-      'Angkutan Umum': '#DC2626',     // Merah Kontras
-      'Mikrotrans': '#F97316',        // Oranye Hangat
-      'Transjabodetabek': '#0284C7',  // Biru Cerah
-      'Royaltrans': '#EAB308',        // Kuning Emas
-      'Bus Wisata': '#7C3AED',        // Ungu
-      'Lainnya': '#64748B'            // Abu-abu Slate
+      'BRT': '#16A34A',
+      'Angkutan Umum': '#DC2626',
+      'Mikrotrans': '#F97316',
+      'Transjabodetabek': '#0284C7',
+      'Royaltrans': '#EAB308',
+      'Bus Wisata': '#7C3AED',
+      'Lainnya': '#64748B'
     };
 
     const EXTRA_PALETTE = ['#0D9488', '#DB2777', '#4F46E5', '#D97706', '#059669'];
@@ -419,7 +508,7 @@
     }
 
     // =========================================================================
-    // 2. FALLBACK DATA SAMPEL JABODETABEK (SESUAI TABEL QGIS PENGGUNA)
+    // 3. DATA FALLBACK JABODETABEK
     // =========================================================================
     const FALLBACK_LAHAN = {
       type: "FeatureCollection",
@@ -427,163 +516,24 @@
         {
           type: "Feature",
           properties: {
-            Nama: "Terminal Kampung Rambutan",
-            ID_Lahan: "L26",
-            ID_Petugas: "P37, P96, P38",
-            "Nama Titik": "KAMPUNG RAMBUTAN",
-            Bentuk: "Terminal",
+            Nama: "Terminal Kampung Rambutan", ID_Lahan: "L26", ID_Petugas: "P37, P96, P38",
+            "Nama Titik": "KAMPUNG RAMBUTAN", Bentuk: "Terminal",
             Layanan: "BRT, Angkutan Umum, Mikrotrans, Transjabodetabek",
-            Rute: "7A, 7B, 7E, S22, JAK.06, JAK.19",
-            "Jumlah Rut": 13,
-            "Jumlah Pet": 26,
-            NAMOBJ: "Rambutan",
-            WADMKC: "Ciracas",
-            WADMKK: "Kota Adm. Jakarta Timur",
-            WADMPR: "DKI Jakarta",
-            Luas: 20400.904
+            Rute: "7A, 7B, 7E, S22, JAK.06, JAK.19", "Jumlah Rut": 13, "Jumlah Pet": 26,
+            NAMOBJ: "Rambutan", WADMKC: "Ciracas", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta", Luas: 20400.904
           },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[[106.8812, -6.3106], [106.8832, -6.3106], [106.8832, -6.3088], [106.8812, -6.3088], [106.8812, -6.3106]]]
-          }
+          geometry: { type: "Polygon", coordinates: [[[106.8812, -6.3106], [106.8832, -6.3106], [106.8832, -6.3088], [106.8812, -6.3088], [106.8812, -6.3106]]] }
         },
         {
           type: "Feature",
           properties: {
-            Nama: "Terminal Pinang Ranti",
-            ID_Lahan: "L42",
-            ID_Petugas: "P57, P58, P100",
-            "Nama Titik": "PINANG RANTI_1",
-            Bentuk: "Terminal",
-            Layanan: "BRT, Angkutan Umum, Mikrotrans",
-            Rute: "4F, 9, 9C, JAK.19, JAK.71",
-            "Jumlah Rut": 5,
-            "Jumlah Pet": 17,
-            NAMOBJ: "Pinangranti",
-            WADMKC: "Makasar",
-            WADMKK: "Kota Adm. Jakarta Timur",
-            WADMPR: "DKI Jakarta",
-            Luas: 23515.343
-          },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[[106.8895, -6.2925], [106.8915, -6.2925], [106.8915, -6.2908], [106.8895, -6.2908], [106.8895, -6.2925]]]
-          }
-        },
-        {
-          type: "Feature",
-          properties: {
-            Nama: "Terminal Blok M",
-            ID_Lahan: "L8",
-            ID_Petugas: "P8, P9, P10, P11, P12, P13, P114",
-            "Nama Titik": "BLOK M_1",
-            Bentuk: "Terminal",
+            Nama: "Terminal Blok M", ID_Lahan: "L8", ID_Petugas: "P8, P9, P10, P11, P12",
+            "Nama Titik": "BLOK M_1", Bentuk: "Terminal",
             Layanan: "BRT, Angkutan Umum, Mikrotrans, Transjabodetabek",
-            Rute: "1, 1C, 1E, 1M, 1P, S61, JAK.31",
-            "Jumlah Rut": 31,
-            "Jumlah Pet": 34,
-            NAMOBJ: "Melawai",
-            WADMKC: "Kebayoran Baru",
-            WADMKK: "Kota Adm. Jakarta Selatan",
-            WADMPR: "DKI Jakarta",
-            Luas: 18920.5
+            Rute: "1, 1C, 1E, 1M, 1P, S61, JAK.31", "Jumlah Rut": 31, "Jumlah Pet": 34,
+            NAMOBJ: "Melawai", WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta", Luas: 18920.5
           },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[[106.7988, -6.2448], [106.8012, -6.2448], [106.8012, -6.2428], [106.7988, -6.2428], [106.7988, -6.2448]]]
-          }
-        },
-        {
-          type: "Feature",
-          properties: {
-            Nama: "Pondok Kelapa",
-            ID_Lahan: "L44",
-            ID_Petugas: "P60, P61",
-            "Nama Titik": "Pondok Kelapa_1",
-            Bentuk: "Lahan Pengendapan",
-            Layanan: "Angkutan Umum, Mikrotrans",
-            Rute: "7P, JAK.39, JAK.42",
-            "Jumlah Rut": 3,
-            "Jumlah Pet": 7,
-            NAMOBJ: "Pondok Kelapa",
-            WADMKC: "Duren Sawit",
-            WADMKK: "Kota Adm. Jakarta Timur",
-            WADMPR: "DKI Jakarta",
-            Luas: 4909.38
-          },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[[106.9355, -6.2455], [106.9368, -6.2455], [106.9368, -6.2445], [106.9355, -6.2445], [106.9355, -6.2455]]]
-          }
-        },
-        {
-          type: "Feature",
-          properties: {
-            Nama: "Summarecon Bekasi",
-            ID_Lahan: "L62",
-            ID_Petugas: "P79",
-            "Nama Titik": "SUMMARECON BEKASI",
-            Bentuk: "Lahan Pengendapan",
-            Layanan: "Transjabodetabek",
-            Rute: "B11",
-            "Jumlah Rut": 1,
-            "Jumlah Pet": 3,
-            NAMOBJ: "Margamulya",
-            WADMKC: "Bekasi Utara",
-            WADMKK: "Kota Bekasi",
-            WADMPR: "Jawa Barat",
-            Luas: 262.892
-          },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[[107.0010, -6.2255], [107.0018, -6.2255], [107.0018, -6.2248], [107.0010, -6.2248], [107.0010, -6.2255]]]
-          }
-        },
-        {
-          type: "Feature",
-          properties: {
-            Nama: "Bekasi Timur",
-            ID_Lahan: "L6",
-            ID_Petugas: "P6",
-            "Nama Titik": "BULAK KAPAL",
-            Bentuk: "Halte Pinggir",
-            Layanan: "Transjabodetabek",
-            Rute: "B21",
-            "Jumlah Rut": 1,
-            "Jumlah Pet": 4,
-            NAMOBJ: "Margahayu",
-            WADMKC: "Bekasi Timur",
-            WADMKK: "Kota Bekasi",
-            WADMPR: "Jawa Barat",
-            Luas: 229.005
-          },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[[107.0225, -6.2565], [107.0233, -6.2565], [107.0233, -6.2558], [107.0225, -6.2558], [107.0225, -6.2565]]]
-          }
-        },
-        {
-          type: "Feature",
-          properties: {
-            Nama: "Flavor Bliss Alam Sutera",
-            ID_Lahan: "L1A",
-            ID_Petugas: "P1A",
-            "Nama Titik": "Flavor Bliss",
-            Bentuk: "Lahan Pengendapan",
-            Layanan: "Transjabodetabek",
-            Rute: "S61",
-            "Jumlah Rut": 1,
-            "Jumlah Pet": 3,
-            NAMOBJ: "Pakulonan",
-            WADMKC: "Serpong Utara",
-            WADMKK: "Kota Tangerang Selatan",
-            WADMPR: "Banten",
-            Luas: 410.5
-          },
-          geometry: {
-            type: "Polygon",
-            coordinates: [[[106.6525, -6.2412], [106.6534, -6.2412], [106.6534, -6.2404], [106.6525, -6.2404], [106.6525, -6.2412]]]
-          }
+          geometry: { type: "Polygon", coordinates: [[[106.7988, -6.2448], [106.8012, -6.2448], [106.8012, -6.2428], [106.7988, -6.2428], [106.7988, -6.2448]]] }
         }
       ]
     };
@@ -598,63 +548,8 @@
         },
         {
           type: "Feature",
-          properties: { ID_Petugas: "P96", ID_Lahan: "L26", "Nama Titik": "KAMPUNG RAMBUTAN_2", Bentuk: "Terminal", Layanan: "Mikrotrans", Rute: "JAK.06, JAK.19", "Jumlah Rut": 4, "Jumlah Pet": 8, WADMKC: "Ciracas", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Point", coordinates: [106.8825, -6.3099] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P38", ID_Lahan: "L26", "Nama Titik": "KAMPUNG RAMBUTAN_3", Bentuk: "Terminal", Layanan: "Transjabodetabek", Rute: "S22, D11", "Jumlah Rut": 3, "Jumlah Pet": 8, WADMKC: "Ciracas", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Point", coordinates: [106.8822, -6.3091] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P57", ID_Lahan: "L42", "Nama Titik": "PINANG RANTI_1", Bentuk: "Terminal", Layanan: "BRT", Rute: "9, 9C", "Jumlah Rut": 2, "Jumlah Pet": 9, WADMKC: "Makasar", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Point", coordinates: [106.8902, -6.2915] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P58", ID_Lahan: "L42", "Nama Titik": "PINANG RANTI_2", Bentuk: "Terminal", Layanan: "Mikrotrans, Angkutan Umum", Rute: "4F, JAK.19, JAK.71", "Jumlah Rut": 3, "Jumlah Pet": 8, WADMKC: "Makasar", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Point", coordinates: [106.8909, -6.2919] }
-        },
-        {
-          type: "Feature",
           properties: { ID_Petugas: "P8", ID_Lahan: "L8", "Nama Titik": "BLOK M_1", Bentuk: "Terminal", Layanan: "BRT", Rute: "1", "Jumlah Rut": 1, "Jumlah Pet": 9, WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
           geometry: { type: "Point", coordinates: [106.7995, -6.2435] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P9", ID_Lahan: "L8", "Nama Titik": "BLOK M_2", Bentuk: "Terminal", Layanan: "Angkutan Umum", Rute: "1C, 1E, 1M, 1P", "Jumlah Rut": 12, "Jumlah Pet": 10, WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Point", coordinates: [106.8002, -6.2438] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P11", ID_Lahan: "L8", "Nama Titik": "BLOK M_4", Bentuk: "Terminal", Layanan: "Transjabodetabek", Rute: "1W, P11, S61, T31", "Jumlah Rut": 4, "Jumlah Pet": 6, WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Point", coordinates: [106.8005, -6.2442] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P12", ID_Lahan: "L8", "Nama Titik": "BLOK M_5", Bentuk: "Terminal", Layanan: "Mikrotrans", Rute: "JAK.31", "Jumlah Rut": 1, "Jumlah Pet": 9, WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Point", coordinates: [106.7992, -6.2443] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P60", ID_Lahan: "L44", "Nama Titik": "Pondok Kelapa_1", Bentuk: "Lahan Pengendapan", Layanan: "Angkutan Umum, Mikrotrans", Rute: "7P, JAK.39, JAK.42", "Jumlah Rut": 3, "Jumlah Pet": 7, WADMKC: "Duren Sawit", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Point", coordinates: [106.9361, -6.2450] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P79", ID_Lahan: "L62", "Nama Titik": "SUMMARECON BEKASI", Bentuk: "Lahan Pengendapan", Layanan: "Transjabodetabek", Rute: "B11", "Jumlah Rut": 1, "Jumlah Pet": 3, WADMKC: "Bekasi Utara", WADMKK: "Kota Bekasi", WADMPR: "Jawa Barat" },
-          geometry: { type: "Point", coordinates: [107.0014, -6.2251] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P6", ID_Lahan: "L6", "Nama Titik": "BULAK KAPAL", Bentuk: "Halte Pinggir", Layanan: "Transjabodetabek", Rute: "B21", "Jumlah Rut": 1, "Jumlah Pet": 4, WADMKC: "Bekasi Timur", WADMKK: "Kota Bekasi", WADMPR: "Jawa Barat" },
-          geometry: { type: "Point", coordinates: [107.0229, -6.2561] }
-        },
-        {
-          type: "Feature",
-          properties: { ID_Petugas: "P1A", ID_Lahan: "L1A", "Nama Titik": "Flavor Bliss", Bentuk: "Lahan Pengendapan", Layanan: "Transjabodetabek", Rute: "S61", "Jumlah Rut": 1, "Jumlah Pet": 3, WADMKC: "Serpong Utara", WADMKK: "Kota Tangerang Selatan", WADMPR: "Banten" },
-          geometry: { type: "Point", coordinates: [106.6529, -6.2408] }
         }
       ]
     };
@@ -666,42 +561,12 @@
           type: "Feature",
           properties: { NAMOBJ: "Rambutan", WADMKC: "Ciracas", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
           geometry: { type: "Polygon", coordinates: [[[106.865, -6.330], [106.900, -6.330], [106.900, -6.298], [106.865, -6.298], [106.865, -6.330]]] }
-        },
-        {
-          type: "Feature",
-          properties: { NAMOBJ: "Pinangranti", WADMKC: "Makasar", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Polygon", coordinates: [[[106.870, -6.298], [106.915, -6.298], [106.915, -6.265], [106.870, -6.265], [106.870, -6.298]]] }
-        },
-        {
-          type: "Feature",
-          properties: { NAMOBJ: "Melawai", WADMKC: "Kebayoran Baru", WADMKK: "Kota Adm. Jakarta Selatan", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Polygon", coordinates: [[[106.780, -6.260], [106.820, -6.260], [106.820, -6.225], [106.780, -6.225], [106.780, -6.260]]] }
-        },
-        {
-          type: "Feature",
-          properties: { NAMOBJ: "Pondok Kelapa", WADMKC: "Duren Sawit", WADMKK: "Kota Adm. Jakarta Timur", WADMPR: "DKI Jakarta" },
-          geometry: { type: "Polygon", coordinates: [[[106.915, -6.260], [106.955, -6.260], [106.955, -6.225], [106.915, -6.225], [106.915, -6.260]]] }
-        },
-        {
-          type: "Feature",
-          properties: { NAMOBJ: "Margamulya", WADMKC: "Bekasi Utara", WADMKK: "Kota Bekasi", WADMPR: "Jawa Barat" },
-          geometry: { type: "Polygon", coordinates: [[[106.985, -6.240], [107.025, -6.240], [107.025, -6.205], [106.985, -6.205], [106.985, -6.240]]] }
-        },
-        {
-          type: "Feature",
-          properties: { NAMOBJ: "Margahayu", WADMKC: "Bekasi Timur", WADMKK: "Kota Bekasi", WADMPR: "Jawa Barat" },
-          geometry: { type: "Polygon", coordinates: [[[107.005, -6.275], [107.045, -6.275], [107.045, -6.240], [107.005, -6.240], [107.005, -6.275]]] }
-        },
-        {
-          type: "Feature",
-          properties: { NAMOBJ: "Pakulonan", WADMKC: "Serpong Utara", WADMKK: "Kota Tangerang Selatan", WADMPR: "Banten" },
-          geometry: { type: "Polygon", coordinates: [[[106.635, -6.260], [106.675, -6.260], [106.675, -6.220], [106.635, -6.220], [106.635, -6.260]]] }
         }
       ]
     };
 
     // =========================================================================
-    // 3. STATE APLIKASI
+    // 4. STATE APLIKASI
     // =========================================================================
     const state = {
       rawLahan: null,
@@ -713,7 +578,7 @@
         kecamatan: null
       },
       currentBoundaryLevel: null,
-      clusterMetric: 'petugas', // 'petugas' (Jumlah Petugas) | 'lahan' (Lahan Petugas)
+      clusterMetric: 'petugas',
       lahanMapById: {},
       filteredPetugas: [],
       filteredLahan: [],
@@ -732,7 +597,7 @@
     };
 
     // =========================================================================
-    // 4. INISIALISASI PETA & BASEMAP ESRI (MAX ZOOM +3 STEP HINGGA LEVEL 22)
+    // 5. INISIALISASI PETA & BASEMAP ESRI
     // =========================================================================
     const esriGray = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
       attribution: 'Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
@@ -779,60 +644,104 @@
     const petugasLayerGroup = L.layerGroup().addTo(map);
 
     // =========================================================================
-    // 5. PEMUATAN FILE GEOJSON OTOMATIS DARI REPOSITORY
+    // 6. PEMUATAN FILE GEOJSON & DERIVASI OTOMATIS JIKA PETUGAS_JSON KOSONG
     // =========================================================================
+    function derivePetugasFromLahan(lahanGeoJSON) {
+      const derived = [];
+      (lahanGeoJSON.features || []).forEach((f, idx) => {
+        const p = f.properties || {};
+        const latLng = extractLatLng(f.geometry);
+        if (!latLng) return;
+
+        derived.push({
+          type: 'Feature',
+          properties: {
+            ...p,
+            ID_Petugas: getProp(p, ['ID_Petugas', 'ID_PETUGAS'], `P-${idx + 1}`),
+            ID_Lahan: getProp(p, ['ID_Lahan', 'ID_LAHAN'], `L-${idx + 1}`),
+            'Nama Titik': getProp(p, ['Nama Titik', 'Nama_Titik', 'Nama'], `Titik ${idx + 1}`),
+            'Jumlah Pet': getJumlahPetugas(p),
+            'Jumlah Rut': getJumlahRute(p)
+          },
+          geometry: {
+            type: 'Point',
+            coordinates: [latLng[1], latLng[0]]
+          }
+        });
+      });
+      return { type: 'FeatureCollection', features: derived };
+    }
+
     async function loadGeoJSONFiles() {
       const badge = document.getElementById('data-source-badge');
       let loadedLiveCount = 0;
 
-      async function fetchOrFallback(url, fallbackData) {
-        try {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const json = await res.json();
-          if (json && Array.isArray(json.features)) {
-            loadedLiveCount++;
-            return json;
+      async function fetchWithVariants(urls, fallbackData) {
+        for (const url of urls) {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) continue;
+            const json = await res.json();
+            if (json && Array.isArray(json.features) && json.features.length > 0) {
+              loadedLiveCount++;
+              return { data: json, isLive: true };
+            }
+          } catch (err) {
+            console.warn(`Gagal memuat ${url}:`, err.message);
           }
-          throw new Error('GeoJSON tidak valid');
-        } catch (err) {
-          console.warn(`Menggunakan data fallback untuk ${url}:`, err.message);
-          return fallbackData;
         }
+        return { data: fallbackData, isLive: false };
       }
 
-      const [lahanData, petugasData, wilayahData] = await Promise.all([
-        fetchOrFallback('./INIFIX_Aman.geojson', FALLBACK_LAHAN),
-        fetchOrFallback('./Petugas_JSON.geojson', FALLBACK_PETUGAS),
-        fetchOrFallback('./Wilayah_kec.geojson', FALLBACK_WILAYAH)
+      const [lahanRes, petugasRes, wilayahRes] = await Promise.all([
+        fetchWithVariants(['./INIFIX_Aman.geojson', './inifix_aman.geojson'], FALLBACK_LAHAN),
+        fetchWithVariants(['./Petugas_JSON.geojson', './petugas_json.geojson', './Petugas.geojson'], null),
+        fetchWithVariants(['./Wilayah_kec.geojson', './wilayah_kec.geojson'], FALLBACK_WILAYAH)
       ]);
 
-      state.rawLahan = lahanData;
-      state.rawPetugas = petugasData;
-      state.rawWilayah = wilayahData;
+      state.rawLahan = lahanRes.data;
+      state.rawWilayah = wilayahRes.data;
 
-      // Siapkan cache batas wilayah (Kecamatan, Kab/Kota, Provinsi) secara tahan-galat
+      if (petugasRes.isLive && petugasRes.data && petugasRes.data.features.length > 0) {
+        state.rawPetugas = petugasRes.data;
+      } else if (lahanRes.isLive && state.rawLahan.features.length > 0) {
+        state.rawPetugas = derivePetugasFromLahan(state.rawLahan);
+      } else {
+        state.rawPetugas = FALLBACK_PETUGAS;
+      }
+
       prepareBoundaryLevels();
 
-      // Bangun lookup ID_Lahan untuk memperkaya data wilayah & luas pada Pos Petugas
       state.lahanMapById = {};
       (state.rawLahan.features || []).forEach(f => {
         const p = f.properties || {};
-        if (p.ID_Lahan) {
-          state.lahanMapById[String(p.ID_Lahan).trim()] = p;
+        const idL = getProp(p, ['ID_Lahan', 'ID_LAHAN'], '');
+        if (idL) {
+          state.lahanMapById[String(idL).trim()] = p;
         }
       });
 
-      // Normalisasi properti administratif pada fitur Petugas dari Lahan induk jika kosong
       (state.rawPetugas.features || []).forEach(f => {
         const p = f.properties || {};
-        const parentLahan = state.lahanMapById[String(p.ID_Lahan || '').trim()] || {};
-        p.WADMKC = p.WADMKC || parentLahan.WADMKC || 'Tidak Diketahui';
-        p.WADMKK = p.WADMKK || parentLahan.WADMKK || 'Tidak Diketahui';
-        p.WADMPR = p.WADMPR || parentLahan.WADMPR || 'Tidak Diketahui';
-        p.NAMOBJ = p.NAMOBJ || parentLahan.NAMOBJ || '';
-        p.LuasLahan = Number(parentLahan.Luas) || 0;
-        p.NamaLahan = parentLahan.Nama || p['Nama Titik'] || p.ID_Lahan || '-';
+        const idL = String(getProp(p, ['ID_Lahan', 'ID_LAHAN'], '')).trim();
+        const parentLahan = state.lahanMapById[idL] || {};
+
+        p.ID_Lahan = idL || '-';
+        p.ID_Petugas = getProp(p, ['ID_Petugas', 'ID_PETUGAS'], '-');
+        p['Nama Titik'] = getProp(p, ['Nama Titik', 'Nama_Titik', 'Nama'], getProp(parentLahan, ['Nama Titik', 'Nama'], '-'));
+        p.Bentuk = getProp(p, ['Bentuk', 'BENTUK'], getProp(parentLahan, ['Bentuk', 'BENTUK'], '-'));
+        p.Layanan = getProp(p, ['Layanan', 'LAYANAN'], getProp(parentLahan, ['Layanan', 'LAYANAN'], 'Tidak Terdefinisi'));
+        p.Rute = getProp(p, ['Rute', 'RUTE'], getProp(parentLahan, ['Rute', 'RUTE'], '-'));
+
+        p['Jumlah Pet'] = getJumlahPetugas(p) || getJumlahPetugas(parentLahan);
+        p['Jumlah Rut'] = getJumlahRute(p) || getJumlahRute(parentLahan);
+
+        p.WADMKC = getProp(p, ['WADMKC'], getProp(parentLahan, ['WADMKC'], 'Tidak Diketahui'));
+        p.WADMKK = getProp(p, ['WADMKK'], getProp(parentLahan, ['WADMKK'], 'Tidak Diketahui'));
+        p.WADMPR = getProp(p, ['WADMPR'], getProp(parentLahan, ['WADMPR'], 'Tidak Diketahui'));
+        p.NAMOBJ = getProp(p, ['NAMOBJ'], getProp(parentLahan, ['NAMOBJ'], ''));
+        p.LuasLahan = getLuasLahan(parentLahan) || getLuasLahan(p);
+        p.NamaLahan = getProp(parentLahan, ['Nama'], p['Nama Titik']);
       });
 
       if (loadedLiveCount === 3) {
@@ -850,7 +759,7 @@
     }
 
     // =========================================================================
-    // 6. BATAS WILAYAH DINAMIS MENGIKUTI LEVEL KLASTER (PROVINSI / KABKOTA / KEC)
+    // 7. BATAS WILAYAH DINAMIS (PROVINSI / KABKOTA / KECAMATAN)
     // =========================================================================
     function getZoomModeInfo(zoom) {
       if (zoom <= 9) return { key: 'provinsi', prop: 'WADMPR', label: 'PROVINSI' };
@@ -859,7 +768,6 @@
       return { key: 'detail', prop: 'WADMKC', label: 'PER TITIK (< 1:50.000)' };
     }
 
-    // Penggabungan geometri per atribut wilayah (WADMKK / WADMPR) yang tahan terhadap self-intersection & MultiPolygon
     function mergePolygonsByAttribute(geojson, propName) {
       if (!geojson || !Array.isArray(geojson.features) || typeof turf === 'undefined') return geojson;
 
@@ -873,7 +781,6 @@
         const key = rawVal ? String(rawVal).trim() : 'Lainnya';
         if (!grouped[key]) grouped[key] = [];
 
-        // Pecah MultiPolygon menjadi Polygon tunggal lalu bersihkan simpul duplikat
         try {
           if (type === 'MultiPolygon') {
             turf.flatten(f).features.forEach(single => grouped[key].push(single));
@@ -902,7 +809,6 @@
               fallbackPolys.push(nextPoly);
             }
           } catch (err) {
-            // Jika salah satu poligon mengalami topological error, coba perbaiki dengan buffer(0)
             try {
               const repairedA = turf.buffer(accumulated, 0);
               const repairedB = turf.buffer(nextPoly, 0);
@@ -993,7 +899,7 @@
     }
 
     // =========================================================================
-    // 7. FILTER & PENCARIAN
+    // 8. FILTER & PENCARIAN
     // =========================================================================
     function populateFilterDropdowns() {
       const provSet = new Set();
@@ -1007,7 +913,7 @@
         if (p.WADMPR && p.WADMPR !== 'Tidak Diketahui') provSet.add(p.WADMPR);
         if (p.WADMKK && p.WADMKK !== 'Tidak Diketahui') kabSet.add(p.WADMKK);
         if (p.WADMKC && p.WADMKC !== 'Tidak Diketahui') kecSet.add(p.WADMKC);
-        if (p.Bentuk) bentukSet.add(p.Bentuk);
+        if (p.Bentuk && p.Bentuk !== '-') bentukSet.add(p.Bentuk);
         parseServices(p.Layanan).forEach(srv => layananSet.add(srv));
       });
 
@@ -1068,15 +974,8 @@
 
         if (q) {
           const haystack = [
-            p.ID_Petugas,
-            p.ID_Lahan,
-            p['Nama Titik'],
-            p.NamaLahan,
-            p.Rute,
-            p.Layanan,
-            p.WADMKC,
-            p.WADMKK,
-            p.WADMPR
+            p.ID_Petugas, p.ID_Lahan, p['Nama Titik'], p.NamaLahan,
+            p.Rute, p.Layanan, p.WADMKC, p.WADMKK, p.WADMPR
           ].join(' ').toLowerCase();
           if (!haystack.includes(q)) return false;
         }
@@ -1086,7 +985,8 @@
       const activeLahanIds = new Set(state.filteredPetugas.map(f => String(f.properties.ID_Lahan || '').trim()));
       state.filteredLahan = (state.rawLahan.features || []).filter(f => {
         const p = f.properties || {};
-        if (activeLahanIds.has(String(p.ID_Lahan || '').trim())) return true;
+        const idL = String(getProp(p, ['ID_Lahan', 'ID_LAHAN'], '')).trim();
+        if (idL && activeLahanIds.has(idL)) return true;
         if (provinsi && p.WADMPR !== provinsi) return false;
         if (kabkota && p.WADMKK !== kabkota) return false;
         if (kecamatan && p.WADMKC !== kecamatan) return false;
@@ -1094,10 +994,10 @@
         const services = parseServices(p.Layanan);
         if (layanan && !services.includes(layanan)) return false;
         if (q) {
-          const haystack = [p.Nama, p.ID_Lahan, p['Nama Titik'], p.Rute, p.Layanan, p.WADMKC, p.WADMKK].join(' ').toLowerCase();
+          const haystack = [p.Nama, idL, p['Nama Titik'], p.Rute, p.Layanan, p.WADMKC, p.WADMKK].join(' ').toLowerCase();
           if (!haystack.includes(q)) return false;
         }
-        return state.filteredPetugas.length === 0 ? false : true;
+        return true;
       });
 
       renderMapFeatures();
@@ -1106,7 +1006,7 @@
     }
 
     // =========================================================================
-    // 8. RENDER PETA BERDASARKAN SKALA ZOOM (OPSI JUMLAH PETUGAS VS LAHAN PETUGAS)
+    // 9. RENDER PETA BERDASARKAN SKALA ZOOM (MODE JUMLAH PETUGAS VS LAHAN)
     // =========================================================================
     function buildSegmentedGradient(serviceCounts) {
       const entries = Object.entries(serviceCounts).filter(([, v]) => v > 0);
@@ -1136,7 +1036,6 @@
       const zoom = map.getZoom();
       const mode = getZoomModeInfo(zoom);
 
-      // Perbarui lencana status klaster & batas wilayah
       document.getElementById('zoom-mode-label').textContent = `Klaster: ${mode.label}`;
       document.getElementById('zoom-scale-label').textContent = `Zoom ${zoom}`;
       renderWilayahBoundaries(false);
@@ -1169,13 +1068,13 @@
         if (showPetugas) {
           state.filteredPetugas.forEach(feature => {
             const p = feature.properties || {};
-            const coords = feature.geometry && feature.geometry.coordinates;
-            if (!coords || coords.length < 2) return;
+            const latLng = extractLatLng(feature.geometry);
+            if (!latLng) return;
 
             const services = parseServices(p.Layanan);
             const mainColor = getServiceColor(services[0]);
 
-            const marker = L.circleMarker([coords[1], coords[0]], {
+            const marker = L.circleMarker(latLng, {
               radius: 8,
               fillColor: mainColor,
               color: '#ffffff',
@@ -1198,11 +1097,11 @@
       const groups = {};
 
       if (state.clusterMetric === 'petugas') {
-        // OPSI 1: Berdasarkan Jumlah Petugas (dari titik Pos Petugas)
+        // MODE 1: JUMLAH PETUGAS
         state.filteredPetugas.forEach(feature => {
           const p = feature.properties || {};
-          const coords = feature.geometry && feature.geometry.coordinates;
-          if (!coords || coords.length < 2) return;
+          const latLng = extractLatLng(feature.geometry);
+          if (!latLng) return;
 
           const regionKey = (p[mode.prop] && p[mode.prop] !== 'Tidak Diketahui') ? p[mode.prop] : 'Wilayah Lainnya';
           if (!groups[regionKey]) {
@@ -1218,27 +1117,21 @@
           }
 
           const g = groups[regionKey];
-          g.sumLat += coords[1];
-          g.sumLng += coords[0];
+          g.sumLat += latLng[0];
+          g.sumLng += latLng[1];
           g.pointCount += 1;
-          g.displayValue += (Number(p['Jumlah Pet']) || 0);
+          g.displayValue += getJumlahPetugas(p);
 
           parseServices(p.Layanan).forEach(srv => {
             g.serviceCounts[srv] = (g.serviceCounts[srv] || 0) + 1;
           });
         });
       } else {
-        // OPSI 2: Berdasarkan Lahan Petugas (Count jumlah lahan titik ujung per wilayah)
+        // MODE 2: LAHAN PETUGAS
         state.filteredLahan.forEach(feature => {
           const p = feature.properties || {};
-          let centroidCoords = null;
-          if (feature.geometry && typeof turf !== 'undefined') {
-            try {
-              const c = turf.centroid(feature);
-              centroidCoords = c.geometry.coordinates;
-            } catch (e) {}
-          }
-          if (!centroidCoords) return;
+          const latLng = extractLatLng(feature.geometry);
+          if (!latLng) return;
 
           const regionKey = (p[mode.prop] && p[mode.prop] !== 'Tidak Diketahui') ? p[mode.prop] : 'Wilayah Lainnya';
           if (!groups[regionKey]) {
@@ -1254,8 +1147,8 @@
           }
 
           const g = groups[regionKey];
-          g.sumLat += centroidCoords[1];
-          g.sumLng += centroidCoords[0];
+          g.sumLat += latLng[0];
+          g.sumLng += latLng[1];
           g.pointCount += 1;
           g.displayValue += 1;
 
@@ -1288,7 +1181,7 @@
     }
 
     // =========================================================================
-    // 9. POPUP & DETAIL INSPEKTOR (JENIS LAYANAN SEBAGAI LIST, TANPA KELAYAKAN)
+    // 10. POPUP & DETAIL INSPEKTOR
     // =========================================================================
     function buildServiceListHTML(layananStr) {
       const services = parseServices(layananStr);
@@ -1310,7 +1203,7 @@
     function buildFeaturePopupHTML(p, typeLabel) {
       const title = p['Nama Titik'] || p.Nama || p.ID_Petugas || p.ID_Lahan || 'Objek Tanpa Nama';
       const idBadge = typeLabel === 'Pos Petugas' ? (p.ID_Petugas || '-') : (p.ID_Lahan || '-');
-      const luasVal = Number(p.Luas || p.LuasLahan || 0);
+      const luasVal = getLuasLahan(p) || Number(p.LuasLahan || 0);
 
       return `
         <div class="font-sans">
@@ -1333,11 +1226,11 @@
               </div>
               <div>
                 <div class="text-[10px] text-slate-400">Jumlah Petugas</div>
-                <div class="font-bold text-[#1B3668]">${Number(p['Jumlah Pet'] || 0)} Personel</div>
+                <div class="font-bold text-[#1B3668]">${getJumlahPetugas(p)} Personel</div>
               </div>
               <div>
                 <div class="text-[10px] text-slate-400">Jumlah Rute</div>
-                <div class="font-semibold text-slate-800">${Number(p['Jumlah Rut'] || 0)} Rute</div>
+                <div class="font-semibold text-slate-800">${getJumlahRute(p)} Rute</div>
               </div>
               <div>
                 <div class="text-[10px] text-slate-400">Luas Lahan</div>
@@ -1362,7 +1255,7 @@
       container.classList.remove('hidden');
 
       const title = p['Nama Titik'] || p.Nama || p.ID_Petugas || p.ID_Lahan || '-';
-      const luasVal = Number(p.Luas || p.LuasLahan || 0);
+      const luasVal = getLuasLahan(p) || Number(p.LuasLahan || 0);
 
       container.innerHTML = `
         <div class="bg-[#1B3668] text-white rounded-xl p-3.5 shadow-sm">
@@ -1390,7 +1283,7 @@
           </div>
           <div class="bg-white border border-slate-200 rounded-xl p-2.5">
             <div class="text-[10px] text-slate-400 font-semibold">Jumlah Petugas</div>
-            <div class="text-sm font-extrabold text-[#1B3668] mt-0.5">${Number(p['Jumlah Pet'] || 0)} Orang</div>
+            <div class="text-sm font-extrabold text-[#1B3668] mt-0.5">${getJumlahPetugas(p)} Orang</div>
           </div>
           <div class="bg-white border border-slate-200 rounded-xl p-2.5">
             <div class="text-[10px] text-slate-400 font-semibold">Luas Lahan</div>
@@ -1400,7 +1293,7 @@
 
         <div class="bg-white border border-slate-200 rounded-xl p-3 space-y-2">
           <div>
-            <div class="text-[10px] font-bold text-slate-400 uppercase">Rute (${Number(p['Jumlah Rut'] || 0)} Rute)</div>
+            <div class="text-[10px] font-bold text-slate-400 uppercase">Rute (${getJumlahRute(p)} Rute)</div>
             <div class="text-xs font-semibold text-slate-800 mt-1 leading-relaxed">${p.Rute || '-'}</div>
           </div>
           <div class="border-t border-slate-100 pt-2">
@@ -1417,13 +1310,13 @@
     }
 
     // =========================================================================
-    // 10. STATISTIK DASHBOARD & GRAFIK (BERBASIS ID_PETUGAS & JUMLAH PETUGAS)
+    // 11. STATISTIK DASHBOARD & GRAFIK
     // =========================================================================
     function updateDashboardStatistics() {
       const totalPos = state.filteredPetugas.length;
-      const totalPetugas = state.filteredPetugas.reduce((sum, f) => sum + (Number(f.properties['Jumlah Pet']) || 0), 0);
-      const totalRute = state.filteredPetugas.reduce((sum, f) => sum + (Number(f.properties['Jumlah Rut']) || 0), 0);
-      const totalLuas = state.filteredLahan.reduce((sum, f) => sum + (Number(f.properties.Luas) || 0), 0);
+      const totalPetugas = state.filteredPetugas.reduce((sum, f) => sum + getJumlahPetugas(f.properties), 0);
+      const totalRute = state.filteredPetugas.reduce((sum, f) => sum + getJumlahRute(f.properties), 0);
+      const totalLuas = state.filteredLahan.reduce((sum, f) => sum + getLuasLahan(f.properties), 0);
 
       document.getElementById('tab-list-count').textContent = totalPos.toLocaleString('id-ID');
       document.getElementById('kpi-pos').textContent = totalPos.toLocaleString('id-ID');
@@ -1433,11 +1326,10 @@
       document.getElementById('kpi-luas-ha').textContent = `${(totalLuas / 10000).toFixed(2)} Hektar`;
       document.getElementById('kpi-rute').textContent = totalRute.toLocaleString('id-ID');
 
-      // Agregasi Jenis Layanan (dari setiap titik ID_Petugas)
       const serviceStats = {};
       state.filteredPetugas.forEach(f => {
         const p = f.properties || {};
-        const pet = Number(p['Jumlah Pet']) || 0;
+        const pet = getJumlahPetugas(p);
         parseServices(p.Layanan).forEach(srv => {
           if (!serviceStats[srv]) serviceStats[srv] = { posCount: 0, petugasCount: 0 };
           serviceStats[srv].posCount += 1;
@@ -1462,14 +1354,13 @@
         `;
       }).join('');
 
-      // Agregasi Sebaran Wilayah: ID_Petugas vs Jumlah Petugas per Kab/Kota
       const regionStats = {};
       state.filteredPetugas.forEach(f => {
         const p = f.properties || {};
         const key = (p.WADMKK && p.WADMKK !== 'Tidak Diketahui') ? p.WADMKK.replace('Kota Adm. ', '') : 'Lainnya';
         if (!regionStats[key]) regionStats[key] = { pos: 0, petugas: 0 };
         regionStats[key].pos += 1;
-        regionStats[key].petugas += (Number(p['Jumlah Pet']) || 0);
+        regionStats[key].petugas += getJumlahPetugas(p);
       });
 
       const topRegions = Object.entries(regionStats)
@@ -1567,7 +1458,7 @@
     }
 
     // =========================================================================
-    // 11. DAFTAR POS PETUGAS DI SIDEBAR
+    // 12. DAFTAR POS PETUGAS DI SIDEBAR
     // =========================================================================
     function renderSidebarList() {
       const container = document.getElementById('tab-list');
@@ -1591,7 +1482,7 @@
                 <div class="text-[10px] text-slate-500 mt-1 truncate">${[p.WADMKC, p.WADMKK].filter(Boolean).join(', ')}</div>
               </div>
               <div class="text-right shrink-0">
-                <span class="text-xs font-extrabold text-[#1B3668]">${Number(p['Jumlah Pet'] || 0)}</span>
+                <span class="text-xs font-extrabold text-[#1B3668]">${getJumlahPetugas(p)}</span>
                 <div class="text-[9px] text-slate-400">Petugas</div>
               </div>
             </div>
@@ -1611,15 +1502,15 @@
     function focusOnPetugas(idx) {
       const feature = state.filteredPetugas[idx];
       if (!feature) return;
-      const coords = feature.geometry && feature.geometry.coordinates;
-      if (coords && coords.length >= 2) {
-        map.flyTo([coords[1], coords[0]], 19, { duration: 0.7 });
+      const latLng = extractLatLng(feature.geometry);
+      if (latLng) {
+        map.flyTo(latLng, 19, { duration: 0.7 });
       }
       showObjectDetail(feature.properties, 'Pos Petugas');
     }
 
     // =========================================================================
-    // 12. EVENT LISTENERS, TOGGLE KLASTER & NAVIGASI TAB
+    // 13. EVENT LISTENERS & NAVIGASI TAB
     // =========================================================================
     function setClusterMetric(metric) {
       state.clusterMetric = metric;
@@ -1716,8 +1607,9 @@
     function fitMapToData() {
       const coords = [];
       (state.rawPetugas.features || []).forEach(f => {
-        if (f.geometry && f.geometry.coordinates) {
-          coords.push([f.geometry.coordinates[1], f.geometry.coordinates[0]]);
+        const latLng = extractLatLng(f.geometry);
+        if (latLng) {
+          coords.push(latLng);
         }
       });
       if (coords.length > 0) {
@@ -1736,7 +1628,6 @@
 
     map.on('zoomend', renderMapFeatures);
 
-    // Inisialisasi ikon & mulai baca data GeoJSON
     lucide.createIcons();
     loadGeoJSONFiles();
   </script>
